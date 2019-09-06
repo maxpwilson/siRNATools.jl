@@ -1,0 +1,7 @@
+name = "siRNATools"
+uuid = "1699ad72-d0bc-11e9-37f5-0deafe9ae593"
+authors = ["maxpwilson <48170841+maxpwilson@users.noreply.github.com>"]
+version = "0.1.0"
+
+[deps]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
