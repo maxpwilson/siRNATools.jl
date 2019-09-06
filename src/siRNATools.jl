@@ -13,11 +13,8 @@ function int_to_date(x::Number) :: Date
     Date(1900) + Day(x)
 end
 
-function clean_value(x::Nothing, type::DataType, f=eval::Function)
-    missing
-end
-
 function clean_value(x, type::DataType, f=eval::Function, g=eval::Function) :: type
+    (x === nothing) && (x = 0)
     if !(x isa type)
         if x isa String
             try 
