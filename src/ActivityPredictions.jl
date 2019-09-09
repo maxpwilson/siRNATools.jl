@@ -1,13 +1,13 @@
 using DataFrames, CSV, Flux, Query
 using BSON: @save, @load
 
-function get_prediction(model, x::Array{Int64,1}, rnd=true::Bool)
+function get_prediction(model, x::Array{Int64,1}, rnd=true::Bool) :: Float64
     pred = Flux.data(model(x))[1]
     (rnd == true) && (pred = round(pred))
     pred
 end
 
-function get_predictions(model, x::Array{Array{Int64,1},1}, rnd=true::Bool)
+function get_predictions(model, x::Array{Array{Int64,1},1}, rnd=true::Bool) :: Array{Float64, 1}
     a=[]
     for y in x
         push!(a, get_prediction(model, y, rnd))
