@@ -1,3 +1,7 @@
+try
+    run(`python -m pip install pyxlsb`);
+catch
+end
 
 using PyCall, DataFrames, Dates, ProgressMeter, Query
 
