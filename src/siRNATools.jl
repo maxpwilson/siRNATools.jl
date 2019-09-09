@@ -1,7 +1,7 @@
 module siRNATools
 export SSF_DF
 
-using PyCall, DataFrames, Dates
+using PyCall, DataFrames, Dates, ProgressMeter
 
 #ENV["PYTHON"] = "C:\\Users\\mwilson\\AppData\\Local\\Continuum\\anaconda3\\python.exe"
 
@@ -22,7 +22,7 @@ function clean_value(x, type::DataType, f=eval::Function, g=eval::Function) :: t
             catch
                 x = 0
             end
-        elseif type == string
+        elseif type == String
             try
                 x = string(x)
             catch
@@ -60,7 +60,7 @@ function SSF_DF(NB::Int64) :: DataFrame
     Sequence = String[],
     )
     for file in searchdir(path, ".xlsb")
-        sht = try 
+        sht = try
             pb.open_workbook(path * file).get_sheet("Sample Set Form") 
         catch 
             println(file, " could not be opened")
@@ -86,5 +86,41 @@ function SSF_DF(NB::Int64) :: DataFrame
     df
 end
 
+function CF_DF(NB::Int64) :: DataFrame
+    path = "R:\\Chemistry\\siRNA\\Single Strands\\$NB\\"
+    df = DataFrame(
+    StrandID = String[],
+    BatchNumber = String[],
+    CleavageStartDate = Date[],
+    Comments = String[],
+    CrudeMS = Float64[],
+    CrudePurity = Float64[],
+    MW = Float64[],
+    CrudeYield = Float64[],
+    )
+    for file in searchdir(path, ".xlsb")
+        sht = try
+            pb.open_workbook(path * file).get_sheet("Cleavage Form") 
+        catch 
+            println(file, " could not be opened")
+            continue
+        end
+        PG, ST = 0, 0
+        for (index, row) in enumerate(sht.rows(sparse=true))
+            if (row[2][3] != nothing) && (row[2][3] != "") && (row[2][3][end] == 'S') &&(index in 7:54)
+                SID = clean_value(row[2][3], String)
+                BN = replace(clean_value(row[3][3], String), " crude" => "")
+                CSD = clean_value(row[7][3], Date, int_to_date)
+                COM = clean_value(row[9][3], String)
+                CMS = clean_value(row[13][3], Float64)
+                CP = clean_value(row[14][3], Float64)
+                MW = clean_value(row[18][3], Float64)
+                CY = clean_value(row[20][3], Float64)
+                push!(df, [SID, BN, CSD, COM, CMS, CP, MW, CY])
+            end
+        end
+    end
+    df
+end
 
 end # module
