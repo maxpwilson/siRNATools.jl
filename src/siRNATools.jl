@@ -205,4 +205,12 @@ function sht_df(NB::Int64) :: DataFrame
     df
 end
 
+function shts_df(NBs::Int64...) :: DataFrame
+    df = DataFrame()
+    for NB in NBs
+        df = vcat(df, sht_df(NB))
+    end
+    df
+end
+
 end # module
