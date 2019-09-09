@@ -1,7 +1,7 @@
 module siRNATools
 export SSF_DF
 
-using PyCall, DataFrames, Dates, ProgressMeter
+using PyCall, DataFrames, Dates, ProgressMeter, Query
 
 #ENV["PYTHON"] = "C:\\Users\\mwilson\\AppData\\Local\\Continuum\\anaconda3\\python.exe"
 
@@ -92,7 +92,7 @@ function CF_DF(NB::Int64) :: DataFrame
     StrandID = String[],
     BatchNumber = String[],
     CleavageStartDate = Date[],
-    Comments = String[],
+    SynthesisComments = String[],
     CrudeMS = Float64[],
     CrudePurity = Float64[],
     MW = Float64[],
@@ -105,7 +105,6 @@ function CF_DF(NB::Int64) :: DataFrame
             println(file, " could not be opened")
             continue
         end
-        PG, ST = 0, 0
         for (index, row) in enumerate(sht.rows(sparse=true))
             if (row[2][3] != nothing) && (row[2][3] != "") && (row[2][3][end] == 'S') &&(index in 7:54)
                 SID = clean_value(row[2][3], String)
@@ -119,6 +118,89 @@ function CF_DF(NB::Int64) :: DataFrame
                 push!(df, [SID, BN, CSD, COM, CMS, CP, MW, CY])
             end
         end
+    end
+    df
+end
+
+function DF_DF(NB::Int64) :: DataFrame
+    path = "R:\\Chemistry\\siRNA\\Single Strands\\$NB\\"
+    df = DataFrame(
+        BatchNumber = String[],
+        DeprotectionComments = String[]
+    )
+    for file in searchdir(path, ".xlsb")
+        sht = try
+            pb.open_workbook(path * file).get_sheet("Deprotection Form") 
+        catch 
+            println(file, " could not be opened")
+            continue
+        end
+        for (index, row) in enumerate(sht.rows(sparse=true))
+            if (row[2][3] != nothing) && (row[2][3] != "") && (row[2][3][end] == 'S') &&(index in 7:54)
+                BN = replace(clean_value(row[3][3], String), " postTBDMS" => "")
+                COM = clean_value(row[16][3], String)
+                push!(df, [BN, COM])
+            end
+        end
+    end
+    df
+end
+
+function PF_DF(NB::Int64) :: DataFrame
+    path = "R:\\Chemistry\\siRNA\\Single Strands\\$NB\\"
+    df = DataFrame(
+        StrandID = String[],
+        BatchNumber = String[],
+        Instrument = String[],
+        Column = String[],
+        Method = String[],
+        PurStartDate = Date[],
+        PrepDate = Date[],
+        RetentionTime = Float64[],
+        FractionsKept = String[],
+        InjectionVolume = Float64[],
+        PurificationComments = String[],
+    )
+    for file in searchdir(path, ".xlsb")
+        sht = try
+            pb.open_workbook(path * file).get_sheet("Purification Form") 
+        catch 
+            println(file, " could not be opened")
+            continue
+        end
+        for (index, row) in enumerate(sht.rows(sparse=true))
+            if (row[2][3] != nothing) && (row[2][3] != "") && (row[2][3][end] == 'S') &&(index in 7:54)
+                SID = clean_value(row[2][3], String)
+                BN = replace(clean_value(row[3][3], String), " purified" => "")
+                INS = clean_value(row[5][3], String)
+                COL = clean_value(row[6][3], String)
+                MET = clean_value(row[7][3], String)
+                PSD = clean_value(row[8][3], Date, int_to_date)
+                PRD = clean_value(clean_value(row[9][3], Int), Date, int_to_date)
+                RT = clean_value(row[10][3], Float64)
+                FK = clean_value(row[11][3], String)
+                IV = clean_value(row[12][3], Float64)
+                COM = clean_value(row[13][3], String)
+                push!(df, [SID, BN, INS, COL, MET, PSD, PRD, RT, FK, IV, COM])
+            end
+        end
+    end
+    df
+end
+
+function sht_df(NB::Int64) :: DataFrame
+    df_pf = PF_DF(NB)
+    df_ssf = SSF_DF(NB)
+    df_cf = CF_DF(NB)
+    df_df = DF_DF(NB)
+    df = @from pf in df_pf begin
+        @join ssf in df_ssf on pf.BatchNumber equals ssf.BatchNumber
+        @join cf in df_cf on pf.BatchNumber equals cf.BatchNumber
+        @join df in df_df on pf.BatchNumber equals df.BatchNumber
+        @select {ssf.StrandID, pf.BatchNumber, ssf.NoteBook, ssf.Page, ssf.SheetType, ssf.Position, ssf.Scale, ssf.Needed, ssf.NeedBy, ssf.Sequence, ssf.Target,
+            cf.CleavageStartDate, cf.SynthesisComments, cf.CrudeMS, cf.MW, cf.CrudePurity, cf.CrudeYield, df.DeprotectionComments,
+            pf.Instrument, pf.Column, pf.Method, pf.PurificationComments, pf.PurStartDate, pf.PrepDate, pf.RetentionTime, pf.FractionsKept, pf.InjectionVolume}
+        @collect DataFrame
     end
     df
 end
