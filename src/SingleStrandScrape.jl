@@ -1,9 +1,8 @@
 try
-    run(`python -m pip install pyxlsb`);
 catch
 end
 
-using PyCall, DataFrames, Dates, ProgressMeter, Query
+using DataFrames, Dates, ProgressMeter, Query, PyCall
 
 pb = pyimport("pyxlsb")
 
@@ -11,6 +10,20 @@ searchdir(path, key) = filter(x->occursin(key,x), readdir(path))
 
 function int_to_date(x::Number) :: Date
     Date(1900) + Day(x)
+end
+
+function GetPyxlsb() :: PyObject
+    try
+        pb = pyimport("pyxlsb")
+    catch
+        try 
+            run(`python -m pip install pyxlsb --quiet`);
+            pb = pyimport("pyxlsb")
+        catch
+            error("Couldn't get pyxlsb")
+        end
+    end
+    pb
 end
 
 function clean_value(x, type::DataType, f=eval::Function, g=eval::Function) :: type
@@ -46,6 +59,7 @@ function calc_batch_number(notebook::Int, page::Int, type::Int, position::Int) :
 end
 
 function SSF_DF(NB::Int64) :: DataFrame
+    pb = GetPyxlsb()
     path = "R:\\Chemistry\\siRNA\\Single Strands\\$NB\\"
     df = DataFrame(
     StrandID = String[],
@@ -87,6 +101,7 @@ function SSF_DF(NB::Int64) :: DataFrame
 end
 
 function CF_DF(NB::Int64) :: DataFrame
+    pb = GetPyxlsb()
     path = "R:\\Chemistry\\siRNA\\Single Strands\\$NB\\"
     df = DataFrame(
     StrandID = String[],
@@ -123,6 +138,7 @@ function CF_DF(NB::Int64) :: DataFrame
 end
 
 function DF_DF(NB::Int64) :: DataFrame
+    pb = GetPyxlsb()
     path = "R:\\Chemistry\\siRNA\\Single Strands\\$NB\\"
     df = DataFrame(
         BatchNumber = String[],
@@ -147,6 +163,7 @@ function DF_DF(NB::Int64) :: DataFrame
 end
 
 function PF_DF(NB::Int64) :: DataFrame
+    pb = GetPyxlsb()
     path = "R:\\Chemistry\\siRNA\\Single Strands\\$NB\\"
     df = DataFrame(
         StrandID = String[],
