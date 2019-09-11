@@ -4,29 +4,28 @@ end
 
 using DataFrames, Dates, ProgressMeter, Query, PyCall
 
-pb = pyimport("pyxlsb")
-
 searchdir(path, key) = filter(x->occursin(key,x), readdir(path))
 
 function int_to_date(x::Number) :: Date
-    Date(1900) + Day(x)
+    d = Date(1900) + Day(floor(x)) 
+    (d > Date(1900)) && (d = d - Day(2))
+    d
 end
 
 function GetPyxlsb() :: PyObject
     try
-        pb = pyimport("pyxlsb")
+        return pyimport("pyxlsb")
     catch
         try 
             run(`python -m pip install pyxlsb --quiet`);
-            pb = pyimport("pyxlsb")
+            return pyimport("pyxlsb")
         catch
             error("Couldn't get pyxlsb")
         end
     end
-    pb
 end
 
-function clean_value(x, type::DataType, f=eval::Function, g=eval::Function) :: type
+function clean_value(x::Any, type::DataType, f::Function...) :: type
     (x === nothing) && (x = 0)
     if !(x isa type)
         if x isa String
@@ -43,13 +42,30 @@ function clean_value(x, type::DataType, f=eval::Function, g=eval::Function) :: t
             end
         end
     end
-    try
-        x = f(x)
-    catch
+    for g in f
+        try
+            x = g(x)
+        catch
+        end
     end
-    try
-        x = g(x)
-    catch
+    (type == Int) ? (return floor(x)) : return x
+end
+function clean_value(x::Any, type::DataType) :: type
+    (x === nothing) && (x = 0)
+    if !(x isa type)
+        if x isa String
+            try 
+                x = parse(Float64, x)
+            catch
+                x = 0
+            end
+        elseif type == String
+            try
+                x = string(x)
+            catch
+                x = ""
+            end
+        end
     end
     (type == Int) ? (return floor(x)) : return x
 end
@@ -230,3 +246,75 @@ function shts_df(NBs::Int64...) :: DataFrame
     df
 end
 
+function q_df() :: DataFrame
+    pb = GetPyxlsb()
+    file = "R:\\Chemistry\\siRNA\\Synthesis Q.xlsb"
+    df = DataFrame(
+        RequestedBy = String[],
+        RequestedDate = Date[],
+        EstimatedDate = Date[],
+        InjectionDate = Date[],
+        Target = String[],
+        DuplexID = String[],
+        SetDetail = String[],
+        AntiSenseID = String[],
+        ASSynthesisScale = String[],
+        ASStatus = String[],
+        SenseID = String[],
+        SSSynthesisScale = String[],
+        SSStatus = String[],
+        Notes = String[],
+        SpecialAmidites = String[],
+        AmtNeeded = String[],
+        DuplexStatus = String[],
+        DateCompleted = Date[],
+        AnnealedBy = String[],
+        DuplexBatchID = String[],
+        Concentration = String[],
+        AmountPrepared = Float64[],
+    )
+    sht = try
+        pb.open_workbook(file).get_sheet("DUPLEX QUEUE") 
+    catch 
+        println("Queue could not be opened")
+        return df
+    end
+    for (index, row) in enumerate(sht.rows(sparse=true))
+        if (row[6][3] != nothing) && (row[6][3] != "") 
+            REQBY = clean_value(row[1][3], String)
+            REQD = clean_value(row[2][3], Date, int_to_date)
+            ESTD = clean_value(row[3][3], Date, int_to_date)
+            INJD = clean_value(row[4][3], Date, int_to_date)
+            TRGT = clean_value(row[5][3], String)
+            DUPID = clean_value(row[6][3], String)
+            SETDT = clean_value(row[7][3], String)
+            ASID = clean_value(row[8][3], String)
+            ASSS = clean_value(row[9][3], String)
+            ASS = clean_value(row[10][3], String)
+            SSID = clean_value(row[12][3], String)
+            SSSS = clean_value(row[13][3], String)
+            SSS = clean_value(row[14][3], String)
+            NTS = clean_value(row[15][3], String)
+            SPAM = clean_value(row[16][3], String)
+            AMTN = clean_value(row[17][3], String)
+            DUPS = clean_value(row[18][3], String)
+            COMD = clean_value(row[19][3], Date, int_to_date)
+            ANB = clean_value(row[20][3], String)
+            DUBID = clean_value(row[21][3], String)
+            CONC = clean_value(row[23][3], String)
+            AMTP = clean_value(row[24][3], Float64)
+            push!(df, [REQBY, REQD, ESTD, INJD, TRGT, DUPID, SETDT, ASID, ASSS, ASS, SSID, SSSS, SSS, NTS, SPAM, AMTN, DUPS, COMD, ANB, DUBID, CONC, AMTP])
+        end
+    end
+    df
+end
+
+function InQueue() :: DataFrame
+    df_q = q_df()
+    df_q[(df_q.AnnealedBy .== "") .& (df_q.DateCompleted .== Date(1900, 1,1)) .& (df_q.RequestedDate .>= (today() - Month(7))) .& (df_q.DuplexStatus .!= "Canceled") .& (df_q.DuplexStatus .!= "Archived") .& (df_q.DuplexStatus .!= "Madison") .& (df_q.DuplexStatus .!= "Handed Off"), :]
+end
+
+function InProgress(status::String) :: DataFrame
+    df_q = InQueue()
+    df_q[(df_q.ASStatus .== status) .| (df_q.SSStatus .== status), :]
+end

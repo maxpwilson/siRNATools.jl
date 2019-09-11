@@ -21,7 +21,7 @@ function make_predictions(pred::String, model, df, rnd=true::Bool)
     counter = 1
     while name in readdir()
         (counter > 1) && (name=replace(name, "$(counter-1).csv"=>".csv"))
-        (name in readdir()) && (name = replace(name, ".csv"=>"$counter.csv"))
+        (name in readdir()) && (name=replace(name, ".csv"=>"$counter.csv"))
         counter += 1
     end
     CSV.write(name, pred_df)
