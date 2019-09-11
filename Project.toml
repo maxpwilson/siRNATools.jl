@@ -1,7 +1,7 @@
 name = "siRNATools"
 uuid = "1699ad72-d0bc-11e9-37f5-0deafe9ae593"
 authors = ["maxpwilson <48170841+maxpwilson@users.noreply.github.com>"]
-version = "0.0.2"
+version = "0.0.3"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
