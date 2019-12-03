@@ -1,7 +1,7 @@
 name = "siRNATools"
 uuid = "1699ad72-d0bc-11e9-37f5-0deafe9ae593"
 authors = ["maxpwilson <48170841+maxpwilson@users.noreply.github.com>"]
-version = "0.0.3"
+version = "0.0.4"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -9,7 +9,10 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 Query = "1a8c2f83-1ff3-5112-b086-8aa67b057ba1"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
