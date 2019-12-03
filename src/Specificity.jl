@@ -84,3 +84,82 @@ function mismatch_positions(seq1::String, seq2::String) :: Array{Int, 1}
     end
     return out
 end
+
+function find_genome_matches(pattern::String, excluded_gene::String = "", minimum_matches = 5) :: Array{Tuple{String, Int64}}
+    (length(ALLT) == 0) && return []
+    out::Array{Tuple{String, Int64}} = []
+    for (name, T) in ALLT
+        (excluded_gene != "") && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
+        match::Int64 = motif_to_transcript_match(pattern, T)
+        (match < minimum_matches) && push!(out, (name, match))
+    end
+    out
+end
+
+function compress_genome_matches(raw_data::Array{Tuple{String, Int64}}) :: Dict{String, Array{Int64, 1}}
+    out = Dict{String, Array{Int64, 1}}()
+    (length(TRANSCRIPTGENE) == 0) && return out
+    for (name, match) in raw_data
+        if !(haskey(out, TRANSCRIPTGENE[name]))
+            out[TRANSCRIPTGENE[name]] = [match]
+        else
+            push!(out[TRANSCRIPTGENE[name]], match)
+        end
+    end
+    return out
+end
+
+function mismatch_counts(compressed_data::Dict{String, Array{Int64, 1}}) :: Dict{Int64, Int64}
+    out = Dict{Int64, Int64}(zip([0,1,2,3,4], [0,0,0,0,0]))
+    for (gene, matches) in compressed_data
+        out[minimum(matches)] += 1
+    end
+    return out
+end
+
+function specificity_score(pattern::String, raw_data::Array{Tuple{String, Int64}}) :: Float64
+    (length(ALLT) == 0) && return -1
+    min_match::Int64 = 5
+    for (a, b) in raw_data
+        (b < min_match) && (min_match = b)
+    end
+    min_score::Float64 = 5
+    for (name, match) in raw_data
+        if minimum(match) == min_match
+            match_patterns::Array{String, 1} = find_match_sequences(pattern, ALLT[name], min_match)
+            for match_pattern in match_patterns
+                score::Float64 = 0
+                for mismatch in mismatch_positions(pattern, match_pattern)
+                    if mismatch in 1:7
+                        score += 1
+                    elseif mismatch in 8:9
+                        score += 1.2
+                    elseif mismatch == 10
+                        score += 1.25
+                    elseif mismatch == 11
+                        score += 1.5
+                    else
+                        score += 1.9
+                    end
+                end
+                (score < min_score) && (min_score = score)
+            end
+        end
+    end
+    (min_score == 2.9) && (min_score = 3)
+    return min_score
+end
+
+function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String="", rg::UnitRange{Int64} = 2:18) :: DataFrame
+    df = DataFrame(Pattern=String[], Zero=Int64[], One=Int64[], Two=Int64[], Three=Int64[], Four=Int64[], Score=Float64[])
+    for pattern in patterns
+        RP = reverse_complement(pattern[rg])
+        raw_data = find_genome_matches(RP, excluded_gene)
+        compressed_data = compress_genome_matches(raw_data)
+        mismatchs = mismatch_counts(compressed_data)
+        spec_score = specificity_score(RP, raw_data)
+        push!(df, [pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
+    end
+    df
+end
+
