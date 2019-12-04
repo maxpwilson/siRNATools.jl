@@ -6,7 +6,6 @@ ALLT = Dict{String, String}()
 GENETRANSCRIPTS = Dict{String, Array{String, 1}}()
 TRANSCRIPTGENE = Dict{String, String}()
 
-
 function load_RefSeq(path::String=PATH)
     if length(ALLT) == 0 
         @load "$path\\Human_mRNA_allT.bson" allT
