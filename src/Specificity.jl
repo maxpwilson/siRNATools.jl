@@ -1,10 +1,47 @@
-using CSV, DataFrames, StatsBase, StringDistances
+using CSV, DataFrames, StatsBase, StringDistances, GZip
 using BSON: @save, @load
 
 PATH = "C:\\Users\\mwilson\\Notebooks\\Specificity\\"
 ALLT = Dict{String, String}()
 GENETRANSCRIPTS = Dict{String, Array{String, 1}}()
 TRANSCRIPTGENE = Dict{String, String}()
+
+function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
+    path = replace(path, "\\" => "/")
+    path = replace(path, ":/" => "://")
+    for i in num
+        run(`curl "ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/human.$(i).rna.fna.gz" -o "$(path)human.$(i).rna.fna.gz"`)
+    end
+end
+
+function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
+    df = DataFrame(Name=String[], ID=String[], Gene=String[], Variant=UInt8[], Sequence=String[], Type=String[])
+    for j in num
+        f = gzopen("$path\\human.$j.rna.fna.gz")
+        for i in split(read(f, String), ">")[2:end]
+            push!(df, [split(i, "RNA\n")[1], split(i, " ")[1], length(collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))) > 0 ? collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))[end].match[2:end-2] : "None", 1, replace(replace(split(i, "RNA\n")[2], "\n" => ""), "T" => "U"), split(i, "RNA\n")[1][1:2]])
+        end
+        close(f)
+    end
+    CSV.write("$(path)Human_mRNA_df.csv", df)
+end
+
+function save_RefSeq(path::String=PATH)
+    df = CSV.read("$(path)Human_mRNA_df.csv") |> DataFrame
+    TranscriptGene = Dict(zip(df.ID, df.Gene))
+    @save "$(path)Human_mRNA_TranscriptGene.bson" TranscriptGene
+    GeneTranscripts = Dict{String, Array{String, 1}}()
+    for (transcript, gene) in TranscriptGene
+        if !(haskey(GeneTranscripts, gene))
+            GeneTranscripts[gene] = [transcript]
+        else
+            push!(GeneTranscripts[gene], transcript)
+        end
+    end
+    @save "$(path)Human_mRNA_GeneTranscripts.bson" GeneTranscripts
+    allT = Dict(zip(df.ID, df.Sequence))
+    @save "$(path)Human_mRNA_allT.bson" allT
+end
 
 function load_RefSeq(path::String=PATH)
     if length(ALLT) == 0 
