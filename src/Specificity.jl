@@ -1,4 +1,4 @@
-using CSV, DataFrames, StatsBase, StringDistances, GZip
+using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter
 using BSON: @save, @load
 
 PATH = "C:\\Users\\mwilson\\Notebooks\\Specificity\\"
@@ -7,10 +7,41 @@ GENETRANSCRIPTS = Dict{String, Array{String, 1}}()
 TRANSCRIPTGENE = Dict{String, String}()
 
 function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
-    path = replace(path, "\\" => "/")
-    path = replace(path, ":/" => "://")
+    p = Progress(num[end], 0.1, "Updating Reference Sequence ... ", 50)
+    ProgressMeter.update!(p, 1; showvalues = [(:File, "$(path)human.1.rna.fna.gz" )])
     for i in num
-        run(`curl "ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/human.$(i).rna.fna.gz" -o "$(path)human.$(i).rna.fna.gz"`)
+        download("ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/human.$(i).rna.fna.gz", "$(path)Download//human.$(i).rna.fna.gz")
+        #Check if copy of file already exists and if it does compare hashes with new download
+        if isfile("$(path)human.$(i).rna.fna.gz") 
+            fd = gzopen("$(path)Download//human.$(i).rna.fna.gz")
+            f = gzopen("$(path)human.$(i).rna.fna.gz")
+            rd = hash(read(fd, String))
+            rf = hash(read(f, String))
+            close(fd)
+            close(f)
+        else
+            mv("$(path)Download//human.$(i).rna.fna.gz", "$(path)human.$(i).rna.fna.gz", force = true)
+            rd = 1
+            rf = 1
+        end
+        if rd != rf
+            olddir = replace(split(Libc.strftime(stat("$(path)human.$(i).rna.fna.gz").mtime), " ")[1], "/" => "-")
+            !(isdir("$(path)RefSeq $(olddir)")) && mkdir("$(path)RefSeq $(olddir)")
+            isfile("$(path)human.$(i).rna.fna.gz") && mv("$(path)human.$(i).rna.fna.gz", "$(path)RefSeq $(olddir)//human.$(i).rna.fna.gz", force=true)
+            mv("$(path)Download//human.$(i).rna.fna.gz", "$(path)human.$(i).rna.fna.gz", force = true)
+            isfile("$(path)Human_mRNA_allT.bson") && mv("$(path)Human_mRNA_allT.bson", "$(path)RefSeq $(olddir)//Human_mRNA_allT.bson", force=true)
+            isfile("$(path)Human_mRNA_df.csv") && mv("$(path)Human_mRNA_df.csv", "$(path)RefSeq $(olddir)//Human_mRNA_df.csv", force=true)
+            isfile("$(path)Human_mRNA_GeneTranscripts.bson") && mv("$(path)Human_mRNA_GeneTranscripts.bson", "$(path)RefSeq $(olddir)//Human_mRNA_GeneTranscripts.bson", force=true)
+            isfile("$(path)Human_mRNA_TranscriptGene.bson") && mv("$(path)Human_mRNA_TranscriptGene.bson", "$(path)RefSeq $(olddir)//Human_mRNA_TranscriptGene.bson", force=true)
+        end
+        for file in readdir("$(path)Download//")
+            rm("$(path)Download//$file")
+        end
+        if i < num[end]
+            ProgressMeter.next!(p; showvalues = [(:File, "$(path)human.$(i+1).rna.fna.gz" )])
+        else
+            ProgressMeter.next!(p; showvalues = [(:File, "Finished!" )])
+        end
     end
 end
 
@@ -18,8 +49,11 @@ function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     df = DataFrame(Name=String[], ID=String[], Gene=String[], Variant=UInt8[], Sequence=String[], Type=String[])
     for j in num
         f = gzopen("$path\\human.$j.rna.fna.gz")
-        for i in split(read(f, String), ">")[2:end]
+        iter = split(read(f, String), ">")[2:end]
+        p = Progress(length(iter), 0.1, "Processing human.$j.rna.fna.gz")
+        for i in iter
             push!(df, [split(i, "RNA\n")[1], split(i, " ")[1], length(collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))) > 0 ? collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))[end].match[2:end-2] : "None", 1, replace(replace(split(i, "RNA\n")[2], "\n" => ""), "T" => "U"), split(i, "RNA\n")[1][1:2]])
+            ProgressMeter.next!(p)
         end
         close(f)
     end
