@@ -6,6 +6,11 @@ ALLT = Dict{String, String}()
 GENETRANSCRIPTS = Dict{String, Array{String, 1}}()
 TRANSCRIPTGENE = Dict{String, String}()
 
+"""
+    download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
+
+Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/ to the PATH folder 
+"""
 function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     p = Progress(num[end], 0.1, "Updating Reference Sequence ... ", 50)
     ProgressMeter.update!(p, 1; showvalues = [(:File, "$(path)human.1.rna.fna.gz" )])
@@ -45,6 +50,11 @@ function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     end
 end
 
+"""
+    process_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
+
+Processes raw gzipped fasta files into DataFrame and saves it as a CSV in the PATH folder
+"""
 function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     df = DataFrame(Name=String[], ID=String[], Gene=String[], Variant=UInt8[], Sequence=String[], Type=String[])
     for j in num
@@ -60,6 +70,11 @@ function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     CSV.write("$(path)Human_mRNA_df.csv", df)
 end
 
+"""
+    save_RefSeq(::String=PATH)
+
+Saves relevant data structures from the processes mRNA reference sequence for use in searches
+"""
 function save_RefSeq(path::String=PATH)
     df = CSV.read("$(path)Human_mRNA_df.csv") |> DataFrame
     TranscriptGene = Dict(zip(df.ID, df.Gene))
