@@ -1,5 +1,5 @@
 using Documenter
-#using siRNATools
+using siRNATools
 
 makedocs(
     sitename = "siRNATools",
