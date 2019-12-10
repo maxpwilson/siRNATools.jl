@@ -50,7 +50,7 @@ function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     for j in num
         f = gzopen("$path\\human.$j.rna.fna.gz")
         iter = split(read(f, String), ">")[2:end]
-        p = Progress(length(iter), 0.1, "Processing human.$j.rna.fna.gz")
+        p = Progress(length(iter), 0.1, "Processing human.$j.rna.fna.gz ... ")
         for i in iter
             push!(df, [split(i, "RNA\n")[1], split(i, " ")[1], length(collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))) > 0 ? collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))[end].match[2:end-2] : "None", 1, replace(replace(split(i, "RNA\n")[2], "\n" => ""), "T" => "U"), split(i, "RNA\n")[1][1:2]])
             ProgressMeter.next!(p)
@@ -155,13 +155,15 @@ function mismatch_positions(seq1::String, seq2::String) :: Array{Int, 1}
     return out
 end
 
-function find_genome_matches(pattern::String, excluded_gene::String = "", minimum_matches = 5) :: Array{Tuple{String, Int64}}
+function find_genome_matches(pattern::String, excluded_gene::String = "",  verbose::Bool = true, minimum_matches = 5) :: Array{Tuple{String, Int64}}
     (length(ALLT) == 0) && return []
     out::Array{Tuple{String, Int64}} = []
+    (verbose ==true) && (p = Progress(length(ALLT), 0.1, "Searching Genome ... "))
     for (name, T) in ALLT
         (excluded_gene != "") && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
         match::Int64 = motif_to_transcript_match(pattern, T)
         (match < minimum_matches) && push!(out, (name, match))
+        (verbose == true) && ProgressMeter.next!(p)
     end
     out
 end
@@ -220,15 +222,23 @@ function specificity_score(pattern::String, raw_data::Array{Tuple{String, Int64}
     return min_score
 end
 
-function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String="", rg::UnitRange{Int64} = 2:18) :: DataFrame
+function Calculate_Specificity(patterns, excluded_gene::String="", rg::UnitRange{Int64} = 2:18, verbose::Bool=true) :: DataFrame
+    string_array = Array{String, 1}()
+    for pattern in patterns
+        push!(string_array, pattern)
+    end
+    Calculate_Specificity(string_array, excluded_gene, rg, verbose)
+end
+function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String="", rg::UnitRange{Int64} = 2:18, verbose::Bool=true) :: DataFrame
     df = DataFrame(Pattern=String[], Zero=Int64[], One=Int64[], Two=Int64[], Three=Int64[], Four=Int64[], Score=Float64[])
     for pattern in patterns
         RP = reverse_complement(pattern[rg])
-        raw_data = find_genome_matches(RP, excluded_gene)
+        raw_data = find_genome_matches(RP, excluded_gene, verbose)
         compressed_data = compress_genome_matches(raw_data)
         mismatchs = mismatch_counts(compressed_data)
         spec_score = specificity_score(RP, raw_data)
         push!(df, [pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
+        (verbose == true) && (println())
     end
     df
 end
