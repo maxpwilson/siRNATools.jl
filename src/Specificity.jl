@@ -58,7 +58,13 @@ function decode_refseq(refseq::ReferenceSequence)
     end
     out
 end
-
+function decode_refseq_partial(refseq::ReferenceSequence, rg::UnitRange)::String
+    out = ""
+    for j in rg
+        out *= BIT_BASES[get_refseq_pos(refseq, j)]
+    end
+    out
+end
 
 """
     download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
@@ -202,9 +208,9 @@ function reverse_complement(pattern::String) :: String
     return r_c
 end
 
-function motif_to_transcript_match(Peq::Array{UInt64, 1}, m::Int64,  refseq::ReferenceSequence) :: UInt8
-    min_k = m
+function motif_to_transcript_match(Peq::Array{UInt64, 1}, m::Int64,  refseq::ReferenceSequence, min_k::Int) :: Array{Tuple{UInt64, UInt64}}
     min_j = 0
+    out::Array{Tuple{UInt64, UInt64}} = []
     n = refseq.length
     Pv::UInt64 = (one(UInt64) << m) - one(UInt64)
     Mv::UInt64 = zero(UInt64)
@@ -221,12 +227,8 @@ function motif_to_transcript_match(Peq::Array{UInt64, 1}, m::Int64,  refseq::Ref
         elseif (Mh >> (m-1)) & 1 != 0
             dist -= 1
         end
-        if dist == 0
-            return 0
-        end
-        if dist < min_k 
-            min_k = dist
-            min_j = j
+        if dist < min_k
+            push!(out, (dist, j))
         end
 
         Ph <<= 1
@@ -234,20 +236,10 @@ function motif_to_transcript_match(Peq::Array{UInt64, 1}, m::Int64,  refseq::Ref
         Pv = Mh | ~(Xv | Ph)
         Mv = Ph & Xv
     end
-    println(min_j)
-    min_k
+    out
 end
 
 
-function motif_to_transcript_match_old(motif::String, sequence::String) :: UInt8
-    mtch::UInt8 = length(motif) + 1
-    for i in 1:(length(sequence) - length(motif) + 1)
-        new_mtch::UInt8 = evaluate(Hamming(), motif, sequence[i:i+length(motif) - 1])
-        (new_mtch < mtch) && (mtch = new_mtch)
-        (mtch == 0) && return 0
-    end
-    return mtch
-end
 
 function find_match_sequences(motif::String, sequence::String, mismatches::Int) :: Array{String, 1}
     mtchs::Array{String, 1} = []
@@ -260,7 +252,11 @@ end
 function mismatch_positions(seq1::String, seq2::String) :: Array{Int, 1}
     out::Array{Int, 1} = []
     for i in 1:length(seq1)
-        (seq1[i] != seq2[i]) && push!(out, i)
+        if length(seq2) < i 
+            push!(out, i)
+        else
+            (seq1[i] != seq2[i]) && push!(out, i)
+        end
     end
     return out
 end
@@ -286,8 +282,19 @@ function find_genome_matches(pattern::String, excluded_gene::String = "",  verbo
     (verbose ==true) && (p = Progress(length(ALLREFSEQ), 0.1, "Searching Genome ... "))
     for (name, T) in ALLREFSEQ
         (excluded_gene != "") && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
-        match::Int64 = motif_to_transcript_match(calculate_Peq(pattern),length(pattern), T)
-        (match < minimum_matches) && push!(out, (name, match))
+        min_match = minimum_matches
+        min_pos = 0
+        matches = motif_to_transcript_match(calculate_Peq(pattern),length(pattern), T, minimum_matches)
+        for (dist, pos) in matches
+            start = (pos-length(pattern)+1 > 0) ? (pos-length(pattern)+1) : 1
+            stop = (pos <= T.length) ? pos : T.length
+            match = decode_refseq_partial(T, start:stop)
+            if length(mismatch_positions(pattern, match)) < min_match
+                min_match = length(mismatch_positions(pattern, match))
+                min_pos = pos
+            end
+        end
+        (min_match < minimum_matches) && push!(out, (name, min_match))
         (verbose == true) && ProgressMeter.next!(p)
     end
     out
