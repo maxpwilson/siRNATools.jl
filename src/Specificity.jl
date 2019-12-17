@@ -1,15 +1,69 @@
 using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter
 using BSON: @save, @load
 
+struct ReferenceSequence
+    data::Vector{UInt64}
+    nmask::BitArray{1}
+    length::UInt64
+end
+
+RNA_ALPHABET = ['A', 'C', 'G', 'U', 'N', 'Y', 'R', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V']
+BASES = Dict(zip(RNA_ALPHABET, [UInt(x-1) for (x, v) in enumerate(RNA_ALPHABET)]))
+BIT_BASES = Dict(zip([UInt(x-1) for (x, v) in enumerate(RNA_ALPHABET)], RNA_ALPHABET))
 PATH = "C:\\Users\\mwilson\\Notebooks\\Specificity\\"
-ALLT = Dict{String, String}()
+ALLREFSEQ = Dict{String, ReferenceSequence}()
 GENETRANSCRIPTS = Dict{String, Array{String, 1}}()
 TRANSCRIPTGENE = Dict{String, String}()
+
+function get_refseq_pos(refseq, pos)
+    @assert(pos >= 1 && pos <= refseq.length)
+    i = cld(pos, 32)
+    j = (pos - (32 * (i - 1)) - 1) * 2
+    refseq.data[i] >> j & 0b11
+end
+function encode_refseq(seq)
+    data = Vector{UInt64}(undef, cld(length(seq), 32))
+    nmask = falses(length(seq))
+    i = 1
+    for j in 1:lastindex(data)
+        x = UInt64(0)
+        r = 0
+        while r < 64 && i <= lastindex(seq)
+            nt = seq[i]
+            if nt in ['A', 'C', 'G', 'U']
+                x |= convert(UInt64, BASES[nt]) << r
+            else
+                nmask[i] = true
+            end
+            i += 1
+            r += 2
+        end
+        data[j] = x
+    end
+    ReferenceSequence(data, nmask, length(seq))
+end
+function decode_refseq(refseq::ReferenceSequence)
+    out = ""
+    i = 1
+    for d in refseq.data
+        for r in 0:2:62
+            if refseq.nmask[i] 
+                out *= 'N'
+            else
+                out *= BIT_BASES[d >> r & 0b11]
+            end
+            (i==refseq.length) && return out
+            i += 1
+        end
+    end
+    out
+end
+
 
 """
     download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
 
-Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\_sapiens/mRNA\_Prot/ to the PATH folder.  Defaults to downloading 8 files.
+Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/ to the PATH folder.  Defaults to downloading 8 files.
 """
 function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     p = Progress(num[end], 0.1, "Updating Reference Sequence ... ", 50)
@@ -90,6 +144,11 @@ function save_RefSeq(path::String=PATH)
     @save "$(path)Human_mRNA_GeneTranscripts.bson" GeneTranscripts
     allT = Dict(zip(df.ID, df.Sequence))
     @save "$(path)Human_mRNA_allT.bson" allT
+    allRefSeq = Dict{String, ReferenceSequence}()
+    for (k, v) in allT
+        allRefSeq[k] = encode_refseq(v)
+    end
+    @save "$(path)Human_mRNA_allRefSeq.bson" allRefSeq
 end
 
 """
@@ -98,27 +157,21 @@ end
 Loads necessary datastructures into memory
 """
 function load_RefSeq(path::String=PATH)
-    if length(ALLT) == 0 
-        @load "$path\\Human_mRNA_allT.bson" allT
-        for (k, v) in allT
-            ALLT[k] = v
-        end
+    @load "$path\\Human_mRNA_allRefSeq.bson" allRefSeq
+    for (k, v) in allRefSeq
+       ALLREFSEQ[k] = v
     end
-    @assert length(allT) == length(ALLT)
-    if length(GENETRANSCRIPTS) == 0
-        @load "$path\\Human_mRNA_GeneTranscripts.bson" GeneTranscripts
-        for (k, v) in GeneTranscripts
-            GENETRANSCRIPTS[k] = v
-        end
+    allRefSeq = nothing
+    @load "$path\\Human_mRNA_GeneTranscripts.bson" GeneTranscripts
+    for (k, v) in GeneTranscripts
+        GENETRANSCRIPTS[k] = v
     end
-    @assert length(GENETRANSCRIPTS) == length(GeneTranscripts)
-    if length(TRANSCRIPTGENE) == 0
-        @load "$path\\Human_mRNA_TranscriptGene.bson" TranscriptGene
-        for (k, v) in TranscriptGene
-            TRANSCRIPTGENE[k] = v
-        end
+    GeneTranscripts = nothing
+    @load "$path\\Human_mRNA_TranscriptGene.bson" TranscriptGene
+    for (k, v) in TranscriptGene
+        TRANSCRIPTGENE[k] = v
     end
-    @assert length(TranscriptGene) == length(TRANSCRIPTGENE)
+    TranscriptGene = nothing;
 end
 
 function unload_RefSeq()
@@ -138,10 +191,10 @@ end
 
 function reverse_complement(pattern::String) :: String
     pattern = uppercase(pattern)
-    bases = ['A', 'C', 'G', 'U']
-    @assert sum([x in bases for x in pattern]) == length(pattern)
+    BASES = ['A', 'C', 'G', 'U']
+    @assert sum([x in BASES for x in pattern]) == length(pattern)
     complements = ['U', 'G', 'C', 'A']
-    b_to_c = Dict{Char, Char}(zip(bases, complements))
+    b_to_c = Dict{Char, Char}(zip(BASES, complements))
     r_c = ""
     for base in pattern
         r_c = b_to_c[base] * r_c
@@ -149,7 +202,44 @@ function reverse_complement(pattern::String) :: String
     return r_c
 end
 
-function motif_to_transcript_match(motif::String, sequence::String) :: UInt8
+function motif_to_transcript_match(Peq::Array{UInt64, 1}, m::Int64,  refseq::ReferenceSequence) :: UInt8
+    min_k = m
+    min_j = 0
+    n = refseq.length
+    Pv::UInt64 = (one(UInt64) << m) - one(UInt64)
+    Mv::UInt64 = zero(UInt64)
+    dist = m
+    for j in 1:n
+        Eq = Peq[get_refseq_pos(refseq, j) + 1]
+        Xv = Eq | Mv
+        Xh = (((Eq & Pv) + Pv) ⊻ Pv) | Eq
+
+        Ph = Mv | ~(Xh | Pv)
+        Mh = Pv & Xh
+        if (Ph >> (m-1)) & 1 != 0
+            dist += 1
+        elseif (Mh >> (m-1)) & 1 != 0
+            dist -= 1
+        end
+        if dist == 0
+            return 0
+        end
+        if dist < min_k 
+            min_k = dist
+            min_j = j
+        end
+
+        Ph <<= 1
+        Mh <<= 1
+        Pv = Mh | ~(Xv | Ph)
+        Mv = Ph & Xv
+    end
+    println(min_j)
+    min_k
+end
+
+
+function motif_to_transcript_match_old(motif::String, sequence::String) :: UInt8
     mtch::UInt8 = length(motif) + 1
     for i in 1:(length(sequence) - length(motif) + 1)
         new_mtch::UInt8 = evaluate(Hamming(), motif, sequence[i:i+length(motif) - 1])
@@ -175,13 +265,28 @@ function mismatch_positions(seq1::String, seq2::String) :: Array{Int, 1}
     return out
 end
 
+function calculate_Peq(pattern::String) :: Array{UInt64, 1}
+    m = length(pattern)
+    Peq :: Array{UInt64, 1} = zeros(UInt64, length(RNA_ALPHABET))
+    for i in 1:m
+        y = pattern[i]
+        for x in RNA_ALPHABET
+            if x == y
+                Peq[BASES[x] + 1] |= one(UInt64) << (i-1)
+            end
+        end
+    end
+    Peq
+end
+
+
 function find_genome_matches(pattern::String, excluded_gene::String = "",  verbose::Bool = true, minimum_matches = 5) :: Array{Tuple{String, Int64}}
-    (length(ALLT) == 0) && return []
+    (length(ALLREFSEQ) == 0) && return []
     out::Array{Tuple{String, Int64}} = []
-    (verbose ==true) && (p = Progress(length(ALLT), 0.1, "Searching Genome ... "))
-    for (name, T) in ALLT
+    (verbose ==true) && (p = Progress(length(ALLREFSEQ), 0.1, "Searching Genome ... "))
+    for (name, T) in ALLREFSEQ
         (excluded_gene != "") && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
-        match::Int64 = motif_to_transcript_match(pattern, T)
+        match::Int64 = motif_to_transcript_match(calculate_Peq(pattern),length(pattern), T)
         (match < minimum_matches) && push!(out, (name, match))
         (verbose == true) && ProgressMeter.next!(p)
     end
@@ -210,7 +315,7 @@ function mismatch_counts(compressed_data::Dict{String, Array{Int64, 1}}) :: Dict
 end
 
 function specificity_score(pattern::String, raw_data::Array{Tuple{String, Int64}}) :: Float64
-    (length(ALLT) == 0) && return -1
+    (length(ALLREFSEQ) == 0) && return -1
     min_match::Int64 = 5
     for (a, b) in raw_data
         (b < min_match) && (min_match = b)
@@ -218,7 +323,7 @@ function specificity_score(pattern::String, raw_data::Array{Tuple{String, Int64}
     min_score::Float64 = 5
     for (name, match) in raw_data
         if minimum(match) == min_match
-            match_patterns::Array{String, 1} = find_match_sequences(pattern, ALLT[name], min_match)
+            match_patterns::Array{String, 1} = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), min_match)
             for match_pattern in match_patterns
                 score::Float64 = 0
                 for mismatch in mismatch_positions(pattern, match_pattern)
