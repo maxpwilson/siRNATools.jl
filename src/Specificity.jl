@@ -1,4 +1,4 @@
-using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter
+using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, BSON
 using BSON: @save, @load
 
 struct ReferenceSequence
@@ -6,14 +6,31 @@ struct ReferenceSequence
     nmask::BitArray{1}
     length::UInt64
 end
+struct RNA_Alphabet
+    bases::Array{Char, 1}
+    bits::Array{UInt8, 1}
+    base_to_bit::Dict{Char, UInt8}
+    bit_to_base::Dict{UInt8, Char}
+    RNA_Alphabet(bases) = new(bases, [UInt8(x) for x in 0:length(bases) - 1], Dict(zip(bases, [UInt8(x) for x in 0:length(bases) - 1])), Dict(zip([UInt8(x) for x in 0:length(bases) - 1], bases)))
+end
+Base.length(T::RNA_Alphabet) = length(T.bases)
+function Base.iterate(T::RNA_Alphabet , (el, i) = (T.bases[1], 1))
+    if i > length(T) 
+        return nothing
+    elseif i == length(T)
+        return (T.bases[i], (nothing, i + 1))
+    else
+        return (T.bases[i], (T.bases[i+1] , i+1))
+    end
+end
 
-RNA_ALPHABET = ['A', 'C', 'G', 'U', 'N', 'Y', 'R', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V']
-BASES = Dict(zip(RNA_ALPHABET, [UInt(x-1) for (x, v) in enumerate(RNA_ALPHABET)]))
-BIT_BASES = Dict(zip([UInt(x-1) for (x, v) in enumerate(RNA_ALPHABET)], RNA_ALPHABET))
-PATH = "C:\\Users\\mwilson\\Notebooks\\Specificity\\"
-ALLREFSEQ = Dict{String, ReferenceSequence}()
-GENETRANSCRIPTS = Dict{String, Array{String, 1}}()
-TRANSCRIPTGENE = Dict{String, String}()
+const RNA_ALPHABET = RNA_Alphabet(['A', 'C', 'G', 'U', 'N'])
+const BASES = RNA_ALPHABET.base_to_bit
+const BIT_BASES = RNA_ALPHABET.bit_to_base
+const PATH = "C:\\Users\\mwilson\\Notebooks\\Specificity\\"
+const ALLREFSEQ = collect(values(BSON.load("$PATH\\Human_mRNA_allRefSeq.bson")))[1] 
+const GENETRANSCRIPTS = collect(values(BSON.load("$PATH\\Human_mRNA_GeneTranscripts.bson")))[1] 
+const TRANSCRIPTGENE = collect(values(BSON.load("$PATH\\Human_mRNA_TranscriptGene.bson")))[1]
 
 function get_refseq_pos(refseq, pos)
     @assert(pos >= 1 && pos <= refseq.length)
@@ -157,43 +174,6 @@ function save_RefSeq(path::String=PATH)
     @save "$(path)Human_mRNA_allRefSeq.bson" allRefSeq
 end
 
-"""
-    load_RefSeq(::String=PATH)
-
-Loads necessary datastructures into memory
-"""
-function load_RefSeq(path::String=PATH)
-    @load "$path\\Human_mRNA_allRefSeq.bson" allRefSeq
-    for (k, v) in allRefSeq
-       ALLREFSEQ[k] = v
-    end
-    allRefSeq = nothing
-    @load "$path\\Human_mRNA_GeneTranscripts.bson" GeneTranscripts
-    for (k, v) in GeneTranscripts
-        GENETRANSCRIPTS[k] = v
-    end
-    GeneTranscripts = nothing
-    @load "$path\\Human_mRNA_TranscriptGene.bson" TranscriptGene
-    for (k, v) in TranscriptGene
-        TRANSCRIPTGENE[k] = v
-    end
-    TranscriptGene = nothing;
-end
-
-function unload_RefSeq()
-    for (k, v) in ALLT
-        delete!(ALLT, k)
-    end
-    @assert length(ALLT) == 0
-    for (k, v) in GENETRANSCRIPTS
-        delete!(GENETRANSCRIPTS, k)
-    end
-    @assert length(GENETRANSCRIPTS) == 0
-    for (k, v) in TRANSCRIPTGENE
-        delete!(TRANSCRIPTGENE, k)
-    end
-    @assert length(TRANSCRIPTGENE) == 0
-end
 
 function reverse_complement(pattern::String) :: String
     pattern = uppercase(pattern)
@@ -313,24 +293,28 @@ function compress_genome_matches(raw_data::Array{Tuple{String, Int64}}) :: Dict{
     return out
 end
 
-function mismatch_counts(compressed_data::Dict{String, Array{Int64, 1}}) :: Dict{Int64, Int64}
-    out = Dict{Int64, Int64}(zip([0,1,2,3,4], [0,0,0,0,0]))
-    for (gene, matches) in compressed_data
-        out[minimum(matches)] += 1
-    end
-    return out
-end
-
-function specificity_score(pattern::String, raw_data::Array{Tuple{String, Int64}}) :: Float64
-    (length(ALLREFSEQ) == 0) && return -1
-    min_match::Int64 = 5
-    for (a, b) in raw_data
-        (b < min_match) && (min_match = b)
-    end
+function final_calc(pattern::String, raw_data::Array{Tuple{String, Int64}}, compressed_data::Dict{String,Array{Int64, 1}})
+    mismatch_counts = Dict{Int64, Int64}([x => 0 for x in 0:4])
+    gene_correction = Dict()
+    transcript_list = []
     min_score::Float64 = 5
+    min_match::Int64 = 5
+    for (gene, matches) in compressed_data
+        filter!(x -> x == minimum(matches), matches)
+        #(length(matches) > 1) && (transcript_list = vcat(transcript_list, GENETRANSCRIPTS[gene]))
+        mismatch_counts[minimum(matches)] += 1
+        (minimum(matches) < min_match) && (min_match = minimum(matches))
+        gene_correction[gene] = []
+    end
     for (name, match) in raw_data
+        #if minimum(match) == minimum(compressed_data[TRANSCRIPTGENE[name]]) && name in transcript_list
+        #    match_patterns = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), minimum(match))
+        #    for match_pattern in match_patterns
+        #        push!(gene_correction[TRANSCRIPTGENE[name]], mismatch_positions(pattern, match_pattern))
+        #    end
+        #end
         if minimum(match) == min_match
-            match_patterns::Array{String, 1} = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), min_match)
+            match_patterns = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), min_match)
             for match_pattern in match_patterns
                 score::Float64 = 0
                 for mismatch in mismatch_positions(pattern, match_pattern)
@@ -350,9 +334,13 @@ function specificity_score(pattern::String, raw_data::Array{Tuple{String, Int64}
             end
         end
     end
+    #for (gene, corrections) in gene_correction
+    #    (length(corrections) > 0) && (mismatch_counts[length(corrections[1])] += (length(unique(corrections)) - 1))
+    #end
     (min_score == 2.9) && (min_score = 3)
-    return min_score
+    (mismatch_counts, min_score)
 end
+
 
 function Calculate_Specificity(patterns, excluded_gene::String="", rg::UnitRange{Int64} = 2:18, verbose::Bool=true) :: DataFrame
     string_array = Array{String, 1}()
@@ -367,8 +355,7 @@ function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String
         RP = reverse_complement(pattern[rg])
         raw_data = find_genome_matches(RP, excluded_gene, verbose)
         compressed_data = compress_genome_matches(raw_data)
-        mismatchs = mismatch_counts(compressed_data)
-        spec_score = specificity_score(RP, raw_data)
+        (mismatchs, spec_score) = final_calc(RP, raw_data, compressed_data)
         push!(df, [pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
         (verbose == true) && (println())
     end
