@@ -2,8 +2,15 @@
 
 Documentation for siRNATools.jl
 
+```@contents
+```
+
 ```@docs
-siRNATools.download_RefSeq()
-siRNATools.process_RefSeq()
-siRNATools.save_RefSeq()
+siRNATools.Specificity.download_RefSeq()
+siRNATools.Specificity.process_RefSeq()
+siRNATools.Specificity.save_RefSeq()
+```
+
+
+```@index
 ```

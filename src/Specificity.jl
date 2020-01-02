@@ -1,3 +1,4 @@
+module Specificity
 using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, BSON
 using BSON: @save, @load
 
@@ -28,9 +29,21 @@ const RNA_ALPHABET = RNA_Alphabet(['A', 'C', 'G', 'U', 'N'])
 const BASES = RNA_ALPHABET.base_to_bit
 const BIT_BASES = RNA_ALPHABET.bit_to_base
 const PATH = "C:\\Users\\mwilson\\Notebooks\\Specificity\\"
-const ALLREFSEQ = collect(values(BSON.load("$PATH\\Human_mRNA_allRefSeq.bson")))[1] 
-const GENETRANSCRIPTS = collect(values(BSON.load("$PATH\\Human_mRNA_GeneTranscripts.bson")))[1] 
-const TRANSCRIPTGENE = collect(values(BSON.load("$PATH\\Human_mRNA_TranscriptGene.bson")))[1]
+const ALLREFSEQ = try 
+    collect(values(BSON.load("$PATH\\Human_mRNA_allRefSeq.bson")))[1]
+catch
+
+end
+const GENETRANSCRIPTS = try
+    collect(values(BSON.load("$PATH\\Human_mRNA_GeneTranscripts.bson")))[1] 
+catch
+
+end
+const TRANSCRIPTGENE = try
+    collect(values(BSON.load("$PATH\\Human_mRNA_TranscriptGene.bson")))[1]
+catch
+
+end
 
 function get_refseq_pos(refseq, pos)
     @assert(pos >= 1 && pos <= refseq.length)
@@ -362,3 +375,6 @@ function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String
     df
 end
 
+export Calculate_Specificity, 
+
+end
