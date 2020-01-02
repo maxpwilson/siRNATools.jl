@@ -10,6 +10,10 @@ makedocs(
         "Specificity" => Any[
             "man/spec_guide.md",
             "man/spec_index.md"
+        ],
+        "Activity" => Any[
+            "man/act_guide.md",
+            "man/act_index.md"
         ]
     ]
 )

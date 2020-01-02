@@ -1,4 +1,4 @@
-#Specificity Functions
+# Functions
 
 
 ```@docs
