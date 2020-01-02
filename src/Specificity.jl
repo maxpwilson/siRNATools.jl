@@ -99,7 +99,7 @@ end
 """
     download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
 
-Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\_sapiens/mRNA\_Prot/ to the PATH folder.  Defaults to downloading 8 files.
+Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\\_sapiens/mRNA\\_Prot/ to the PATH folder.  Defaults to downloading 8 files.
 """
 function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     p = Progress(num[end], 0.1, "Updating Reference Sequence ... ", 50)
