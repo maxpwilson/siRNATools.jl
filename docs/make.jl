@@ -4,7 +4,14 @@ using siRNATools
 makedocs(
     sitename = "siRNATools",
     format = Documenter.HTML(),
-    modules = [siRNATools]
+    modules = [siRNATools],
+    pages = [
+        "Home" => "index.md", 
+        "Specificity" => Any[
+            "man/spec_guide.md",
+            "man/spec_index.md"
+        ]
+    ]
 )
 
 deploydocs(
