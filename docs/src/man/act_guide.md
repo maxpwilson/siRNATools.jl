@@ -1,1 +1,1 @@
-# Guide
+# Activity Guide

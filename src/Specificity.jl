@@ -2,6 +2,13 @@ module Specificity
 using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, BSON
 using BSON: @save, @load
 
+"""
+Structure for reference sequences.  Compresses RNA data into 2 bits of information from the 8 of a normal character string.  Can only use bases A, C, G, U.
+A => 00
+C => 01
+G => 10
+U => 11
+"""
 struct ReferenceSequence
     data::Vector{UInt64}
     nmask::BitArray{1}
@@ -45,12 +52,23 @@ catch
     println("Loading Human_mRNA_TranscriptGene.bson failed, replace file with save_RefSeq()")
 end
 
+"""
+    get_refseq_pos(::ReferenceSequence, ::Int)
+
+Function to retrieve bit value of base at specificied position in a reference sequence.
+"""
 function get_refseq_pos(refseq, pos)
     @assert(pos >= 1 && pos <= refseq.length)
     i = cld(pos, 32)
     j = (pos - (32 * (i - 1)) - 1) * 2
     refseq.data[i] >> j & 0b11
 end
+
+"""
+    encode_refseq(::String) :: Reference Sequence
+
+Function that takes a string containing only A, C, G, and U and encodes it into a ReferenceSequence type
+"""
 function encode_refseq(seq)
     data = Vector{UInt64}(undef, cld(length(seq), 32))
     nmask = falses(length(seq))
@@ -72,6 +90,12 @@ function encode_refseq(seq)
     end
     ReferenceSequence(data, nmask, length(seq))
 end
+
+"""
+    decode_refseq(::ReferenceSequence) :: String
+
+Function takes a ReferenceSequence type and returns a String containing the RNA bases.
+"""
 function decode_refseq(refseq::ReferenceSequence)
     out = ""
     i = 1
@@ -88,6 +112,12 @@ function decode_refseq(refseq::ReferenceSequence)
     end
     out
 end
+
+"""
+    decode_refseq_partial(::ReferenceSequence, ::UnitRange) :: String
+
+Function which takes a ReferenceSequence type and outputs specificied range of bases as a String.
+"""
 function decode_refseq_partial(refseq::ReferenceSequence, rg::UnitRange)::String
     out = ""
     for j in rg
@@ -163,7 +193,11 @@ end
 """
     save_RefSeq(::String=PATH)
 
-Saves relevant data structures from the processes mRNA reference sequence for use in searches
+Saves relevant data structures from the processes mRNA reference sequence for use in searches.
+- TranscriptGene => dictionary of Transcripts to Genes
+- GeneTranscripts => dictionary of Genes to Transcripts
+- allT => dictionary of Transcript name to base sequence as String
+- allRefSeq => dictionary of Transcript name to base sequence as ReferenceSequence
 """
 function save_RefSeq(path::String=PATH)
     df = CSV.read("$(path)Human_mRNA_df.csv") |> DataFrame
