@@ -264,9 +264,9 @@ function calculate_Peq(pattern::String) :: Array{UInt64, 1}
 end
 
 """
-    motif_to_transcript_match(Peq::Array{Unit64, 1}, m::Int64, refseq::ReferenceSequence, min_K::Int) :: Array{Tuple{UInt64, UInt64}}
+    motif_to_transcript_match(Peq::Array{Unit64, 1}, m::Int64, refseq::ReferenceSequence, min\\_K::Int) :: Array{Tuple{UInt64, UInt64}}
 
-Takes as input Peq calculated in [calculate_Peq](@ref), m = the length of the pattern to search for, the ReferenceSequence to search in, and min_k = 
+Takes as input Peq calculated in [calculate\\_Peq](@ref), m = the length of the pattern to search for, the ReferenceSequence to search in, and min_k = 
 the maximum distance to output.  Implements the string matching algorithm described in _A Fast Bit-Vector Algorithm for Approximate String Matching Based
 on Dynamic Programming_ by Gene Myers.  Output is a tuple of all Levenshtein distances less than min_k and their positions in refseq.   
 """
@@ -303,7 +303,7 @@ end
 
 
 """
-    find_match_sequence(motif::String, sequence::String, mismatches::Int) :: Array{String, 1}
+    find_match_sequences(motif::String, sequence::String, mismatches::Int) :: Array{String, 1}
 
 Function takes as input a motif, sequence, and number of mismatches to search for.  Output is an array of all substrings of sequence which have a 
 Hamming distance of exactly mismatches to motif. 
@@ -368,7 +368,7 @@ end
 """
     compress_genome_matches(::Array{Tuple{String, Int64}}) :: Dict{String, Array{Int64, 1}}
 
-Function takes as input the output of [find_genome_matches](@ref) and collapses it into a dictionary of Gene names and an array of all lowest Hamming mismatch 
+Function takes as input the output of [find\\_genome\\_matches](@ref) and collapses it into a dictionary of Gene names and an array of all lowest Hamming mismatch 
 of the transcripts of that gene.
 """
 function compress_genome_matches(raw_data::Array{Tuple{String, Int64}}) :: Dict{String, Array{Int64, 1}}
@@ -388,7 +388,7 @@ end
 """
     final_calc(pattern::String, raw_data::Array{Tuple{String, Int64}}, compressed_data::Dict{String, Array{Int64, 1}})
 
-Function takes as input the pattern being searched for, the raw_data from [find_genome_matches](@ref), and the compressed data from [compress_genome_matches](@ref).
+Function takes as input the pattern being searched for, the raw_data from [find\\_genome\\_matches](@ref), and the compressed data from [compress\\_genome\\_matches](@ref).
 Ouput is a Tuple containing the mismatch_counts dictionary which adds up the number of genes with a minimum Hamming distance of 0-4, and the specificity score.
 """
 function final_calc(pattern::String, raw_data::Array{Tuple{String, Int64}}, compressed_data::Dict{String,Array{Int64, 1}})

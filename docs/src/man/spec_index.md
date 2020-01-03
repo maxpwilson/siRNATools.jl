@@ -23,7 +23,7 @@ siRNATools.Specificity.Calculate_Specificity
 siRNATools.Specificity.reverse_complement
 siRNATools.Specificity.calculate_Peq
 siRNATools.Specificity.motif_to_transcript_match
-siRNATools.Specificity.find_match_sequence
+siRNATools.Specificity.find_match_sequences
 siRNATools.Specificity.mismatch_positions
 siRNATools.Specificity.find_genome_matches
 siRNATools.Specificity.compress_genome_matches
