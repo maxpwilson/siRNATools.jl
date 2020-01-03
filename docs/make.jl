@@ -6,7 +6,8 @@ makedocs(
     format = Documenter.HTML(),
     modules = [siRNATools],
     pages = [
-        "Home" => "index.md", 
+        "Home" => "index.md",
+        "Installation Guide" => "man/instal_guide.md",
         "Specificity" => Any[
             "man/spec_guide.md",
             "man/spec_index.md"

@@ -2,7 +2,7 @@
 
 *A Package with tools for siRNA*
 
-Package is sorted into several submodules
+Package was made using Julia 1.3.0.  
 
 ## Specificity
 
