@@ -58,8 +58,10 @@ julia> df = CSV.read("C:\\my\\csv\\path\\file.csv") |> DataFrame
 .
 ```
 
-Finally use the [`Calculate_Specificity`](@ref) function to calculate the specificity score and gene mismatch information.  Using df.Antisense will calculate for all strands in the antisense column of our dataframe.  Fewer can be picked out using the syntax df.Antisense[i:j] which will calculate for only strands i through j.  The target gene can also be specified and will then be left out of the calculation.  Here we save the resulting dataframe as df_results.  
+Finally, use the [`Calculate_Specificity`](@ref) function to calculate the specificity score and gene mismatch information.  Using df.Antisense will calculate for all strands in the antisense column of our dataframe.  Fewer can be picked out using the syntax df.Antisense[i:j] which will calculate for only strands i through j.  The target gene can also be specified and will then be left out of the calculation.  Here we save the resulting dataframe as df_results.  
 ```julia
+julia> using siRNATools
+
 julia> df_results = siRNATools.Specificity.Calculate_Specificity(df.Antisense, "EXAMPLE1")
 100×7 DataFrame
 │ Row │ Pattern               │ Zero  │ One   │ Two   │ Three │ Four  │ Score   │
