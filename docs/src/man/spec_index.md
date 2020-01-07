@@ -6,6 +6,7 @@
 ## Reference Sequence
 
 ```@docs
+siRNATools.Specificity.Update_Path
 siRNATools.Specificity.ReferenceSequence
 siRNATools.Specificity.get_refseq_pos
 siRNATools.Specificity.encode_refseq

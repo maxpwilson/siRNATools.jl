@@ -7,7 +7,7 @@ makedocs(
     modules = [siRNATools],
     pages = [
         "Home" => "index.md",
-        "Installation Guide" => "man/instal_guide.md",
+        "Installation Guide" => "man/install_guide.md",
         "Specificity" => Any[
             "man/spec_guide.md",
             "man/spec_index.md"
