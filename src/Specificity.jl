@@ -32,10 +32,21 @@ function Base.iterate(T::RNA_Alphabet , (el, i) = (T.bases[1], 1))
     end
 end
 
+if !("Specificity_Path.txt" in readdir("src"))
+    touch("src/Specificity_Path.txt")
+end
+
+if !isdir(readline(open("src/Specificity_Path.txt")))
+    println("Current specified Path does not exist.  Update using siRNATools.Specificity.Update_Path(PATH). Then re-building siRNATools ")
+end
+function Update_Path(PATH::String) 
+    write("src/Specificity_Path.txt", PATH);
+end
+
 const RNA_ALPHABET = RNA_Alphabet(['A', 'C', 'G', 'U', 'N'])
 const BASES = RNA_ALPHABET.base_to_bit
 const BIT_BASES = RNA_ALPHABET.bit_to_base
-const PATH = "C:\\Users\\mwilson\\Notebooks\\Specificity\\"
+const PATH = readline(open("src/Specificity_Path.txt"))
 const ALLREFSEQ = try 
     collect(values(BSON.load("$PATH\\Human_mRNA_allRefSeq.bson")))[1]
 catch
@@ -129,41 +140,42 @@ end
 """
     download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
 
-Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\\_sapiens/mRNA\\_Prot/ to the PATH folder.  Defaults to downloading 8 files.
+Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\\_sapiens/mRNA\\_Prot/ to the PATH folder.  Defaults to downloading 7 files.
 """
-function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
+function download_RefSeq(num::UnitRange{Int64} = 1:7, path::String=PATH)
     p = Progress(num[end], 0.1, "Updating Reference Sequence ... ", 50)
-    ProgressMeter.update!(p, 1; showvalues = [(:File, "$(path)human.1.rna.fna.gz" )])
+    ProgressMeter.update!(p, 1; showvalues = [(:File, "$(path)\\human.1.rna.fna.gz" )])
     for i in num
-        download("ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/human.$(i).rna.fna.gz", "$(path)Download//human.$(i).rna.fna.gz")
+        download("ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/human.$(i).rna.fna.gz", "$(path)\\Download\\human.$(i).rna.fna.gz")
         #Check if copy of file already exists and if it does compare hashes with new download
-        if isfile("$(path)human.$(i).rna.fna.gz") 
-            fd = gzopen("$(path)Download//human.$(i).rna.fna.gz")
-            f = gzopen("$(path)human.$(i).rna.fna.gz")
+        if isfile("$(path)\\human.$(i).rna.fna.gz") 
+            fd = gzopen("$(path)\\Download\\human.$(i).rna.fna.gz")
+            f = gzopen("$(path)\\human.$(i).rna.fna.gz")
             rd = hash(read(fd, String))
             rf = hash(read(f, String))
             close(fd)
             close(f)
         else
-            mv("$(path)Download//human.$(i).rna.fna.gz", "$(path)human.$(i).rna.fna.gz", force = true)
+            mv("$(path)\\Download\\human.$(i).rna.fna.gz", "$(path)\\human.$(i).rna.fna.gz", force = true)
             rd = 1
             rf = 1
         end
         if rd != rf
-            olddir = replace(split(Libc.strftime(stat("$(path)human.$(i).rna.fna.gz").mtime), " ")[1], "/" => "-")
-            !(isdir("$(path)RefSeq $(olddir)")) && mkdir("$(path)RefSeq $(olddir)")
-            isfile("$(path)human.$(i).rna.fna.gz") && mv("$(path)human.$(i).rna.fna.gz", "$(path)RefSeq $(olddir)//human.$(i).rna.fna.gz", force=true)
-            mv("$(path)Download//human.$(i).rna.fna.gz", "$(path)human.$(i).rna.fna.gz", force = true)
-            isfile("$(path)Human_mRNA_allT.bson") && mv("$(path)Human_mRNA_allT.bson", "$(path)RefSeq $(olddir)//Human_mRNA_allT.bson", force=true)
-            isfile("$(path)Human_mRNA_df.csv") && mv("$(path)Human_mRNA_df.csv", "$(path)RefSeq $(olddir)//Human_mRNA_df.csv", force=true)
-            isfile("$(path)Human_mRNA_GeneTranscripts.bson") && mv("$(path)Human_mRNA_GeneTranscripts.bson", "$(path)RefSeq $(olddir)//Human_mRNA_GeneTranscripts.bson", force=true)
-            isfile("$(path)Human_mRNA_TranscriptGene.bson") && mv("$(path)Human_mRNA_TranscriptGene.bson", "$(path)RefSeq $(olddir)//Human_mRNA_TranscriptGene.bson", force=true)
+            olddir = replace(split(Libc.strftime(stat("$(path)\\human.$(i).rna.fna.gz").mtime), " ")[1], "/" => "-")
+            !(isdir("$(path)\\RefSeq $(olddir)")) && mkdir("$(path)\\RefSeq $(olddir)")
+            isfile("$(path)\\human.$(i).rna.fna.gz") && mv("$(path)\\human.$(i).rna.fna.gz", "$(path)\\RefSeq $(olddir)\\human.$(i).rna.fna.gz", force=true)
+            mv("$(path)\\Download\\human.$(i).rna.fna.gz", "$(path)\\human.$(i).rna.fna.gz", force = true)
+            isfile("$(path)\\Human_mRNA_allT.bson") && mv("$(path)\\Human_mRNA_allT.bson", "$(path)\\RefSeq $(olddir)\\Human_mRNA_allT.bson", force=true)
+            isfile("$(path)\\Human_mRNA_df.csv") && mv("$(path)\\Human_mRNA_df.csv", "$(path)\\RefSeq $(olddir)\\Human_mRNA_df.csv", force=true)
+            isfile("$(path)\\Human_mRNA_GeneTranscripts.bson") && mv("$(path)\\Human_mRNA_GeneTranscripts.bson", "$(path)\\RefSeq $(olddir)\\Human_mRNA_GeneTranscripts.bson", force=true)
+            isfile("$(path)\\Human_mRNA_TranscriptGene.bson") && mv("$(path)\\Human_mRNA_TranscriptGene.bson", "$(path)\\RefSeq $(olddir)\\Human_mRNA_TranscriptGene.bson", force=true)
+            isfile("$(path)\\Human_mRNA_allRefSeq.bson") && mv("$(path)\\Human_mRNA_allRefSeq.bson", "$(path)\\RefSeq $(olddir)\\Human_mRNA_allRefSeq.bson", force=true)
         end
-        for file in readdir("$(path)Download//")
-            rm("$(path)Download//$file")
+        for file in readdir("$(path)\\Download\\")
+            rm("$(path)\\Download\\$file")
         end
         if i < num[end]
-            ProgressMeter.next!(p; showvalues = [(:File, "$(path)human.$(i+1).rna.fna.gz" )])
+            ProgressMeter.next!(p; showvalues = [(:File, "$(path)\\human.$(i+1).rna.fna.gz" )])
         else
             ProgressMeter.next!(p; showvalues = [(:File, "Finished!" )])
         end
@@ -171,11 +183,11 @@ function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
 end
 
 """
-    process_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
+    process_RefSeq(::UnitRange{Int64}=1:7, ::String=PATH)
 
 Processes raw gzipped fasta files into DataFrame and saves it as a CSV in the PATH folder
 """
-function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
+function process_RefSeq(num::UnitRange{Int64} = 1:7, path::String=PATH)
     df = DataFrame(Name=String[], ID=String[], Gene=String[], Variant=UInt8[], Sequence=String[], Type=String[])
     for j in num
         f = gzopen("$path\\human.$j.rna.fna.gz")
@@ -187,7 +199,8 @@ function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
         end
         close(f)
     end
-    CSV.write("$(path)Human_mRNA_df.csv", df)
+    CSV.write("$(path)\\Human_mRNA_df.csv", df);
+    println("Processed data saved to $(path)\\Human_mRNA_df.csv")
 end
 
 """
@@ -200,9 +213,13 @@ Saves relevant data structures from the processes mRNA reference sequence for us
 - allRefSeq => dictionary of Transcript name to base sequence as ReferenceSequence
 """
 function save_RefSeq(path::String=PATH)
-    df = CSV.read("$(path)Human_mRNA_df.csv") |> DataFrame
+    println("This may take some time")
+    println("--Loading processed data from CSV--")
+    df = CSV.read("$(path)\\Human_mRNA_df.csv") |> DataFrame
+    println("--Saving Transcript -> Gene Dictionary--")
     TranscriptGene = Dict(zip(df.ID, df.Gene))
-    @save "$(path)Human_mRNA_TranscriptGene.bson" TranscriptGene
+    @save "$(path)\\Human_mRNA_TranscriptGene.bson" TranscriptGene
+    println("--Saving Gene -> Transcript Dictionary--")
     GeneTranscripts = Dict{String, Array{String, 1}}()
     for (transcript, gene) in TranscriptGene
         if !(haskey(GeneTranscripts, gene))
@@ -211,14 +228,17 @@ function save_RefSeq(path::String=PATH)
             push!(GeneTranscripts[gene], transcript)
         end
     end
-    @save "$(path)Human_mRNA_GeneTranscripts.bson" GeneTranscripts
+    @save "$(path)\\Human_mRNA_GeneTranscripts.bson" GeneTranscripts
+    println("--Saving Transcript -> RNA String Dictionary--")
     allT = Dict(zip(df.ID, df.Sequence))
-    @save "$(path)Human_mRNA_allT.bson" allT
+    @save "$(path)\\Human_mRNA_allT.bson" allT
+    println("--Saving Transcript -> binary RNA Data Dictionary--")
     allRefSeq = Dict{String, ReferenceSequence}()
     for (k, v) in allT
         allRefSeq[k] = encode_refseq(v)
     end
-    @save "$(path)Human_mRNA_allRefSeq.bson" allRefSeq
+    @save "$(path)\\Human_mRNA_allRefSeq.bson" allRefSeq
+    println("Finished!")
 end
 
 """
