@@ -32,11 +32,13 @@ function Base.iterate(T::RNA_Alphabet , (el, i) = (T.bases[1], 1))
     end
 end
 
-if !("Specificity_Path.txt" in readdir("src"))
-    touch("src/Specificity_Path.txt")
+src = @__DIR__
+
+if !("Specificity_Path.txt" in readdir(src))
+    touch("$(src)\\Specificity_Path.txt")
 end
 
-if !isdir(readline(open("src/Specificity_Path.txt")))
+if !isdir(readline(open("$(src)\\Specificity_Path.txt")))
     println("Current specified Path does not exist.  Update using siRNATools.Specificity.Update_Path(PATH). Then re-building siRNATools ")
 end
 
@@ -47,28 +49,37 @@ Updates default value for constant PATH.  All created or downloaded files are pu
 Persistent on each computer, but needs to be updated after install before calculating specificity.
 """
 function Update_Path(PATH::String) 
-    write("src/Specificity_Path.txt", PATH);
+    write("$(src)\\Specificity_Path.txt", PATH);
 end
 
 const RNA_ALPHABET = RNA_Alphabet(['A', 'C', 'G', 'U', 'N'])
 const BASES = RNA_ALPHABET.base_to_bit
 const BIT_BASES = RNA_ALPHABET.bit_to_base
-const PATH = readline(open("src/Specificity_Path.txt"))
-const ALLREFSEQ = try 
-    collect(values(BSON.load("$PATH\\Human_mRNA_allRefSeq.bson")))[1]
-catch
-    println("Loading Human_mRNA_allRefSeq.bson failed, replace file with save_RefSeq()")
+
+function Load_Path()
+    global PATH = readline(open("$(src)\\Specificity_Path.txt"))
 end
-const GENETRANSCRIPTS = try
-    collect(values(BSON.load("$PATH\\Human_mRNA_GeneTranscripts.bson")))[1] 
-catch
-    println("Loading Human_mRNA_GeneTranscripts.bson failed, replace file with save_RefSeq()")
+
+Load_Path()
+
+function load_RefSeq()
+    global ALLREFSEQ = try 
+        collect(values(BSON.load("$PATH\\Human_mRNA_allRefSeq.bson")))[1];
+    catch
+        println("Loading Human_mRNA_allRefSeq.bson failed, replace file with save_RefSeq()")
+    end
+    global GENETRANSCRIPTS = try
+        collect(values(BSON.load("$PATH\\Human_mRNA_GeneTranscripts.bson")))[1];
+    catch
+        println("Loading Human_mRNA_GeneTranscripts.bson failed, replace file with save_RefSeq()")
+    end
+    global TRANSCRIPTGENE = try
+        collect(values(BSON.load("$PATH\\Human_mRNA_TranscriptGene.bson")))[1];
+    catch
+        println("Loading Human_mRNA_TranscriptGene.bson failed, replace file with save_RefSeq()")
+    end
 end
-const TRANSCRIPTGENE = try
-    collect(values(BSON.load("$PATH\\Human_mRNA_TranscriptGene.bson")))[1]
-catch
-    println("Loading Human_mRNA_TranscriptGene.bson failed, replace file with save_RefSeq()")
-end
+
 
 """
     get_refseq_pos(::ReferenceSequence, ::Int)
@@ -147,9 +158,9 @@ end
 """
     download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
 
-Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\\_sapiens/mRNA\\_Prot/ to the PATH folder.  Defaults to downloading 7 files.
+Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\\_sapiens/mRNA\\_Prot/ to the PATH folder.  Defaults to downloading 8 files.
 """
-function download_RefSeq(num::UnitRange{Int64} = 1:7, path::String=PATH)
+function download_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     p = Progress(num[end], 0.1, "Updating Reference Sequence ... ", 50)
     ProgressMeter.update!(p, 1; showvalues = [(:File, "$(path)\\human.1.rna.fna.gz" )])
     for i in num
@@ -190,11 +201,11 @@ function download_RefSeq(num::UnitRange{Int64} = 1:7, path::String=PATH)
 end
 
 """
-    process_RefSeq(::UnitRange{Int64}=1:7, ::String=PATH)
+    process_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
 
 Processes raw gzipped fasta files into DataFrame and saves it as a CSV in the PATH folder
 """
-function process_RefSeq(num::UnitRange{Int64} = 1:7, path::String=PATH)
+function process_RefSeq(num::UnitRange{Int64} = 1:8, path::String=PATH)
     df = DataFrame(Name=String[], ID=String[], Gene=String[], Variant=UInt8[], Sequence=String[], Type=String[])
     for j in num
         f = gzopen("$path\\human.$j.rna.fna.gz")
