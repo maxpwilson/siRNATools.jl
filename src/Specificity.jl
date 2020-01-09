@@ -379,10 +379,10 @@ Function takes as input a pattern to search the genome for, excluded_gene to exc
 a progress bar showing progress of search, and minimum\\_matches which is the amount of mismatches searched for + 1.  Output is an array of tuples of transcript names
 and the lowest Hamming distance found to the pattern within that transcript.
 """
-function find_genome_matches(pattern::String, excluded_gene::String = "",  verbose::Bool = true, minimum_matches = 5) :: Array{Tuple{String, Int64}}
+function find_genome_matches(pattern::String, excluded_gene::String = "",  verbose::Bool = true, minimum_matches = 5, pbar_string::String = "Searching Genome... ") :: Array{Tuple{String, Int64}}
     (length(ALLREFSEQ) == 0) && return []
     out::Array{Tuple{String, Int64}} = []
-    (verbose ==true) && (p = Progress(length(ALLREFSEQ), 0.1, "Searching Genome ... "))
+    (verbose ==true) && (p = Progress(length(ALLREFSEQ), 0.1, pbar_string))
     for (name, T) in ALLREFSEQ
         (excluded_gene != "") && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
         min_match = minimum_matches
@@ -486,9 +486,11 @@ function Calculate_Specificity(patterns, excluded_gene::String="", rg::UnitRange
 end
 function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String="", rg::UnitRange{Int64} = 2:18, verbose::Bool=true) :: DataFrame
     df = DataFrame(Pattern=String[], Zero=Int64[], One=Int64[], Two=Int64[], Three=Int64[], Four=Int64[], Score=Float64[])
+    counter = 0
     for pattern in patterns
+        counter += 1
         RP = reverse_complement(pattern[rg])
-        raw_data = find_genome_matches(RP, excluded_gene, verbose)
+        raw_data = find_genome_matches(RP, excluded_gene, verbose, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
         compressed_data = compress_genome_matches(raw_data)
         (mismatchs, spec_score) = final_calc(RP, raw_data, compressed_data)
         push!(df, [pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
