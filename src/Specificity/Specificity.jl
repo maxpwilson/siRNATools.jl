@@ -235,12 +235,12 @@ function Calculate_Specificity(patterns, excluded_gene::String="", rg::UnitRange
 end
 function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String="", rg::UnitRange{Int64} = 2:18, verbose::Bool=true) :: DataFrame
     df = DataFrame(ID=Int[], Pattern=String[], Zero=Int64[], One=Int64[], Two=Int64[], Three=Int64[], Four=Int64[], Score=Float64[])
-    counter = 0
+    counter = Atomic{Int}(0)
     (verbose == true) && ((p = Progress(length(patterns), 0.2, "Calculating Specificity ... ")))
     (verbose == true) && (update!(p, 0))
     @threads for i in 1:length(patterns)
         pattern = patterns[i]
-        counter += 1
+        atomic_add!(counter, 1)
         RP = reverse_complement(pattern[rg])
         raw_data = find_genome_matches(RP, excluded_gene, false, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
         compressed_data = compress_genome_matches(raw_data)
