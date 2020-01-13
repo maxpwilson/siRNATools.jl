@@ -1,5 +1,5 @@
 module Specificity
-using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, BSON
+using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, BSON, Base.Threads
 using BSON: @save, @load
 
 include("Path.jl")
@@ -234,17 +234,21 @@ function Calculate_Specificity(patterns, excluded_gene::String="", rg::UnitRange
     Calculate_Specificity(string_array, excluded_gene, rg, verbose)
 end
 function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String="", rg::UnitRange{Int64} = 2:18, verbose::Bool=true) :: DataFrame
-    df = DataFrame(Pattern=String[], Zero=Int64[], One=Int64[], Two=Int64[], Three=Int64[], Four=Int64[], Score=Float64[])
+    df = DataFrame(ID=Int[], Pattern=String[], Zero=Int64[], One=Int64[], Two=Int64[], Three=Int64[], Four=Int64[], Score=Float64[])
     counter = 0
-    for pattern in patterns
+    (verbose == true) && ((p = Progress(length(patterns), 0.2, "Calculating Specificity ... ")))
+    (verbose == true) && (update!(p, 0))
+    @threads for i in 1:length(patterns)
+        pattern = patterns[i]
         counter += 1
         RP = reverse_complement(pattern[rg])
-        raw_data = find_genome_matches(RP, excluded_gene, verbose, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
+        raw_data = find_genome_matches(RP, excluded_gene, false, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
         compressed_data = compress_genome_matches(raw_data)
         (mismatchs, spec_score) = final_calc(RP, raw_data, compressed_data)
-        push!(df, [pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
-        (verbose == true) && (println())
+        push!(df, [i, pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
+        (verbose == true) && ProgressMeter.next!(p)
     end
+    sort!(df, :ID)
     df
 end
 

@@ -2,7 +2,11 @@
 
 
 function load_RefSeqDB()
-    global REFSEQDB = CSV.read("$(@__DIR__)/RefSeqDB.csv") |> DataFrame
+    try 
+        global REFSEQDB = CSV.read("$(@__DIR__)/RefSeqDB.csv") |> DataFrame
+    catch
+        println("No Reference Sequence Database was found in $(@__DIR__)")
+    end
 end
 
 load_RefSeqDB()
@@ -45,12 +49,35 @@ function load_RefSeq()
     end
 end
 
+
+function full_download_all_RefSeq()
+    for name in REFSEQDB.Name
+        set_species(name)
+        full_download_RefSeq()
+    end
+end
+
+function full_download_RefSeq()
+    println("Fully downloading and processing $(SPECIES) data")
+    download_RefSeq()
+    println("Download complete, beginning processing")
+    process_RefSeq()
+    println("Processing complete, beginning save")
+    save_RefSeq()
+end
+
 """
     download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
 
 Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\\_sapiens/mRNA\\_Prot/ to the PATH folder.  Defaults to downloading 8 files.
 """
 function download_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
+    if !(isdir("$(path)/$(SPECIES)"))
+        mkdir("$(path)/$(SPECIES)")
+    end
+    if !(isdir("$(path)/$(SPECIES)/Download"))
+        mkdir("$(path)/$(SPECIES)/Download")
+    end
     p = Progress(num[end], 0.1, "Updating Reference Sequence ... ", 50)
     ProgressMeter.update!(p, 1; showvalues = [(:File, "$(path)/$(replace(FILEFORMAT, 'X' => '1'))" )])
     for i in num
@@ -72,7 +99,7 @@ function download_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
         end
         if rd != rf
             olddir = replace(split(Libc.strftime(stat(newfile).mtime), " ")[1], "/" => "-")
-            !(isdir("$(path)/$(SPECIES)/RefSeq $(olddir)")) && mkdir("$(path)/$(SPECIES)/RefSeq $(olddir)")
+            !(isdir("$(path)/$(SPECIES)/RefSeq $(olddieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeer)")) && mkdir("$(path)/$(SPECIES)/RefSeq $(olddir)")
             isfile(newfile) && mv(newfile, "$(path)/$(SPECIES)/RefSeq $(olddir)/$(replace(FILEFORMAT, "X" => "$i"))", force=true)
             mv(downfile, newfile, force = true)
             isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allT.bson") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allT.bson", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_allT.bson", force=true)
@@ -103,9 +130,10 @@ function process_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
     d = Dict()
     d[1] = (i -> [split(i, "RNA\n")[1], split(i, " ")[1], length(collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))) > 0 ? collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))[end].match[2:end-2] : "None", 1, replace(replace(split(i, "RNA\n")[2], "\n" => ""), "T" => "U"), split(i, "RNA\n")[1][1:2]])
     d[2] = (i -> [split(i, "RNA\n")[1], split(i, "|")[4], length(collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))) > 0 ? collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))[end].match[2:end-2] : "None", 1, replace(replace(split(i, "RNA\n")[2], "\n" => ""), "T" => "U"), split(i, "|")[4][1:2]])
+    d[3] = (i -> [split(i, "RNA\n")[1], split(i, "|")[2], length(collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))) > 0 ? collect(eachmatch(r"(\([A-Z][A-Za-z0-9-._/]*\)\,)", i))[end].match[2:end-2] : "None", 1, replace(replace(split(i, "RNA\n")[2], "\n" => ""), "T" => "U"), split(i, "|")[2][1:2]])
     for j in num
         f = gzopen("$(path)/$(SPECIES)/$(replace(FILEFORMAT, "X" => "$j"))")
-        iter = split(read(f, String), ">")[2:end]
+        iter = split(read(f, String)[2:end], "\n>")
         p = Progress(length(iter), 0.1, "Processing $(replace(FILEFORMAT, "X" => "$j")) ... ")
         for i in iter
             push!(df, d[ENCODING](i))
