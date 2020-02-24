@@ -95,13 +95,16 @@ end
 Function takes as input a motif, sequence, and number of mismatches to search for.  Output is an array of all substrings of sequence which have a 
 Hamming distance of exactly mismatches to motif. 
 """
-function find_match_sequences(motif::String, sequence::String, mismatches::Int) :: Array{String, 1}
+function find_match_sequences(motif::String, sequence::String, mismatches::Int, tail::Int=0, head::Int=0) :: Array{String, 1}
     mtchs::Array{String, 1} = []
     for i in 1:(length(sequence) - length(motif) + 1)
-        (evaluate(Hamming(), motif, sequence[i:i+length(motif) - 1]) == mismatches) && push!(mtchs, sequence[i:i+length(motif) - 1])
+        (i - tail > 0) ? start = i - tail : start = 1
+        (i + length(motif) - 1 + head <= length(sequence)) ? stop = i + length(motif) - 1 + head : stop = length(sequence)  
+        (evaluate(Hamming(), motif, sequence[i:i+length(motif) - 1]) == mismatches) && push!(mtchs, sequence[start:stop])
     end
     return mtchs
 end
+
 
 """
     mismatch_positions(::String, ::String) :: Array{Int, 1}
@@ -110,11 +113,27 @@ Function returns an array of all positions in which strings used as input differ
 """
 function mismatch_positions(seq1::String, seq2::String) :: Array{Int, 1}
     out::Array{Int, 1} = []
-    for i in 1:length(seq1)
-        if length(seq2) < i 
-            push!(out, i)
-        else
+    if length(seq1) == length(seq2)
+        for i in 1:length(seq1)
             (seq1[i] != seq2[i]) && push!(out, i)
+        end
+    elseif length(seq1) > length(seq2)
+        out = [x for x in 1:length(seq2)]
+        for j in 1:(length(seq1) - length(seq2) + 1)
+            temp::Array{Int, 1} = []
+            for i in j:length(seq2) + j - 1
+                (seq1[i] != seq2[i - j + 1]) && push!(out, i)
+            end
+            (length(temp) < length(out)) && (out = copy(temp))
+        end
+    else
+        out = [x for x in 1:length(seq1)]
+        for j in 1:(length(seq2) - length(seq1) + 1)
+            temp::Array{Int, 1} = []
+            for i in j:length(seq1) + j - 1
+                (seq1[i - j + 1] != seq2[i]) && push!(out, i)
+            end
+            (length(temp) < length(out)) && (out = copy(temp))
         end
     end
     return out
@@ -133,7 +152,7 @@ function find_genome_matches(pattern::String, excluded_gene::String = "",  verbo
     out::Array{Tuple{String, Int64}} = []
     (verbose ==true) && (p = Progress(length(ALLREFSEQ), 0.1, pbar_string))
     for (name, T) in ALLREFSEQ
-        (excluded_gene != "") && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
+        (excluded_gene != "" && excluded_gene in keys(GENETRANSCRIPTS)) && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
         min_match = minimum_matches
         min_pos = 0
         matches = motif_to_transcript_match(calculate_Peq(pattern),length(pattern), T, minimum_matches)
@@ -218,6 +237,58 @@ function final_calc(pattern::String, raw_data::Array{Tuple{String, Int64}}, comp
     (min_score == 2.9) && (min_score = 3)
     (mismatch_counts, min_score)
 end
+
+
+function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::Int64=0) :: DataFrame
+    @assert excluded_gene in keys(GENETRANSCRIPTS)
+    transcripts = GENETRANSCRIPTS[excluded_gene]
+    df = DataFrame()
+    for transcript in transcripts
+        tf = (length(find_match_sequences(pattern, decode_refseq(ALLREFSEQ[transcript]), matchnum)) > 0)
+        tfname = replace(replace(transcript, "_" => ""), "." => "")
+        df_temp = DataFrame(X=Int[])
+        names!(df_temp, [Symbol(tfname)])
+        push!(df_temp, tf)
+        df = hcat(df, df_temp)
+    end
+    df
+end
+
+function Deep_Search(pattern, rg::UnitRange{Int64}=2:18) :: DataFrame
+    GeneData = CSV.read("$PATH/$(SPECIES)/$(SPECIES)_GeneData.csv") |> DataFrame
+    TranscriptRanges = CSV.read("$PATH/$(SPECIES)/$(SPECIES)_TranscriptRanges.csv") |> DataFrame
+    GeneDescription = Dict(zip(GeneData.Symbol, GeneData.description))
+    GeneID = Dict(zip(GeneData.Symbol, GeneData.GeneID))
+    TranscriptRange = Dict(zip(TranscriptRanges.Transcript, TranscriptRanges.Range))
+    TranscriptType = Dict(zip(TranscriptRanges.Transcript, TranscriptRanges.Type))
+    df = DataFrame(Acc=String[], GeneID=Any[], GeneSymbol=String[], Description=String[], Region=Any[], MM=Int[], AS=String[], OffTarget=String[], MMPos=Any[], TranscriptLocation=Any[])
+    RP = reverse_complement(pattern[rg])
+    raw_data = find_genome_matches(RP)
+    (p = Progress(length(raw_data), 0.1, "Calculating ... "))
+    for (name, match) in raw_data
+        match_patterns = find_match_sequences(RP, decode_refseq(ALLREFSEQ[name]), match, 1, 1)
+        for match_pattern in match_patterns
+            RM = reverse_complement(match_pattern)
+            pos = findfirst(match_pattern, decode_refseq(ALLREFSEQ[name]))
+            m = mismatch_positions(RM[1] * pattern[rg] * RM[end], RM)
+            for k in m
+                RM = RM[1:k-1] * lowercase(RM[k]) * RM[k+1:end]
+            end
+            gid = (TRANSCRIPTGENE[name] in keys(GeneID)) ? GeneID[TRANSCRIPTGENE[name]] : "na"
+            gd = (TRANSCRIPTGENE[name] in keys(GeneDescription)) ? GeneDescription[TRANSCRIPTGENE[name]] : "na"
+            region = []
+            tstart = (name in keys(TranscriptRange)) ? parse(Int, split(TranscriptRange[name], ":")[1]) : 1
+            tstop = (name in keys(TranscriptRange)) ? parse(Int, split(TranscriptRange[name], ":")[2]) : pos.stop
+            (tstart < pos.stop && tstop > pos.start) && (push!(region, (name in keys(TranscriptType)) ? TranscriptType[name] : "na"))
+            (tstart > pos.start) && (push!(region, "5' end"))
+            (tstop < pos.stop) && (push!(region, "3' end"))
+            push!(df, [name, gid,TRANSCRIPTGENE[name], gd, region, match, pattern, RM, m, pos])
+        end
+        ProgressMeter.next!(p)
+    end
+    df
+end
+
 
 """
     Calculate_Specificity(patterns, excluded_gene="", rg=2:18, verbose=true) :: DataFrame
