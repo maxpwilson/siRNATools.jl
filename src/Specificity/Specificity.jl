@@ -255,12 +255,11 @@ function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::I
 end
 
 function Deep_Search(pattern, rg::UnitRange{Int64}=2:18) :: DataFrame
-    GeneData = CSV.read("$PATH/$(SPECIES)/$(SPECIES)_GeneData.csv") |> DataFrame
-    TranscriptRanges = CSV.read("$PATH/$(SPECIES)/$(SPECIES)_TranscriptRanges.csv") |> DataFrame
-    GeneDescription = Dict(zip(GeneData.Symbol, GeneData.description))
-    GeneID = Dict(zip(GeneData.Symbol, GeneData.GeneID))
-    TranscriptRange = Dict(zip(TranscriptRanges.Transcript, TranscriptRanges.Range))
-    TranscriptType = Dict(zip(TranscriptRanges.Transcript, TranscriptRanges.Type))
+    TranscriptData = CSV.read("$PATH/$(SPECIES)/$(SPECIES)_TranscriptData.csv") |> DataFrame
+    GeneDescription = Dict(zip(TranscriptData.Gene, TranscriptData.Description))
+    GeneID = Dict(zip(TranscriptData.Gene, TranscriptData.GeneID))
+    TranscriptRange = Dict(zip(TranscriptData.Transcript, TranscriptData.Range))
+    TranscriptType = Dict(zip(TranscriptData.Transcript, TranscriptData.Type))
     df = DataFrame(Acc=String[], GeneID=Any[], GeneSymbol=String[], Description=String[], Region=Any[], MM=Int[], AS=String[], OffTarget=String[], MMPos=Any[], TranscriptLocation=Any[])
     RP = reverse_complement(pattern[rg])
     raw_data = find_genome_matches(RP)

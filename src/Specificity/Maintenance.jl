@@ -126,6 +126,36 @@ end
 Processes raw gzipped fasta files into DataFrame and saves it as a CSV in the PATH folder
 """
 function process_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
+    df = DataFrame(Transcript=String[], Range=UnitRange{Int64}[], Type=String[], Gene=String[], GeneID=Int[], Description=String[], Sequence=String[])
+    for j in num
+        f = gzopen("$(path)/$(SPECIES)/$(replace(FILEFORMAT, "X" => "$j"))")
+        iter = split(read(f, String)[2:end], "LOCUS   ")
+        p = Progress(length(iter), 0.1, "Processing $(replace(FILEFORMAT, "X" => "$j")) ... ")
+        for x in iter
+            v = match(r"VERSION[\s]*([NX][RM]\_[\d]*\.[\d])", x)[1]
+            m = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x)
+            seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U")
+            g = match(r"\/gene=\"(\S*)\"", x)[1]
+            d = replace(match(r"\/product=\"([^\"]*)\"", x)[1], "\n                    " => "")
+            id = parse(Int, match(r"\"GeneID:([\d]*)\"", x)[1])
+            c = m[6]
+            t = m[1]
+            c = replace(replace(replace(replace(c, ">" => ""), "<" => ""), "," => ".."), "join(" => "")
+            cs = split(c, "..")
+            c1 = parse(Int, cs[1])
+            c2 = parse(Int, cs[end])
+            r = c1:c2
+            push!(df, [v, r, t, g, id, d, seq])
+        end
+        ProgressMeter.next!(p)
+    end
+    CSV.write("$(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv", df);
+    println("Processed data saved to $(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv")
+end
+
+
+function process_RefSeq_old(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
+    println("Warning Deprecated, use process_Refseq")
     df = DataFrame(Name=String[], ID=String[], Gene=String[], Variant=UInt8[], Sequence=String[], Type=String[])
     d = Dict()
     d[1] = (i -> [split(i, "RNA\n")[1], split(i, " ")[1], length(collect(eachmatch(r"(\([^\s:]*[A-Z][^\s:]*\)\,)", i))) > 0 ? collect(eachmatch(r"(\([^\s:]*[A-Z][^\s:]*\)\,)", i))[end].match[2:end-2] : collect(eachmatch(r"(\([^\s]*[A-Za-z][^\s]*\)\,)", i))[end].match[2:end-2], 1, replace(replace(split(i, "RNA\n")[2], "\n" => ""), "T" => "U"), split(i, "RNA\n")[1][1:2]])
@@ -160,7 +190,7 @@ function save_RefSeq(path::String=PATH)
     println("--Loading processed data from CSV--")
     df = CSV.read("$(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv") |> DataFrame
     println("--Saving Transcript -> Gene Dictionary--")
-    TranscriptGene = Dict(zip(df.ID, df.Gene))
+    TranscriptGene = Dict(zip(df.Transcript, df.Gene))
     @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.bson" TranscriptGene
     println("--Saving Gene -> Transcript Dictionary--")
     GeneTranscripts = Dict{String, Array{String, 1}}()
@@ -173,13 +203,16 @@ function save_RefSeq(path::String=PATH)
     end
     @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.bson" GeneTranscripts
     println("--Saving Transcript -> RNA String Dictionary--")
-    allT = Dict(zip(df.ID, df.Sequence))
+    allT = Dict(zip(df.Transcript, df.Sequence))
     @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_allT.bson" allT
-    println("--Saving Transcript -> binary RNA Data Dictionary--")
+    println("--Encoding Sequence Data--")
     allRefSeq = Dict{String, ReferenceSequence}()
     for (k, v) in allT
         allRefSeq[k] = encode_refseq(v)
     end
+    println("--Saving Transcript -> binary RNA Data Dictionary--")
     @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.bson" allRefSeq
+    println("--Saving Transcript Data--")
+    CSV.write("$(path)/$(SPECIES)/$(SPECIES)_TranscriptData.csv", df[:, [:Gene, :GeneID, :Description, :Transcript, :Range, :Type]])
     println("Finished!")
 end
