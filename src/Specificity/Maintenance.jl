@@ -3,7 +3,7 @@
 
 function load_RefSeqDB()
     try 
-        global REFSEQDB = CSV.read("$(@__DIR__)/RefSeqDB.csv") |> DataFrame
+        global REFSEQDB = load("$(@__DIR__)/RefSeqDB.jdb") 
     catch
         println("No Reference Sequence Database was found in $(@__DIR__)")
     end
@@ -12,18 +12,18 @@ end
 load_RefSeqDB()
 
 function list_species()
-    for seq in REFSEQDB.Name
+    for seq in JuliaDB.select(REFSEQDB, :Name)
         println(seq)
     end
 end
 
 function set_species(spec::String = "Human")
-    if spec in REFSEQDB.Name
+    if spec in JuliaDB.select(REFSEQDB, :Name)
         global SPECIES = spec
-        global LINK = REFSEQDB.Link[REFSEQDB.Name .== spec][1]
-        global FILEFORMAT = REFSEQDB.FileFormat[REFSEQDB.Name .== spec][1]
-        global NUM = REFSEQDB.Num[REFSEQDB.Name .== spec][1]
-        global ENCODING = REFSEQDB.Encoding[REFSEQDB.Name .== spec][1]
+        global LINK = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :Link)[1]
+        global FILEFORMAT = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :FileFormat)[1]
+        global NUM = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :Num)[1]
+        global ENCODING = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :Encoding)[1]
     else
         println("$(spec) is not an available species.")
         println("To add $(spec) to available species add entry to $(@__DIR__)/RefSeqDB.csv")
@@ -32,6 +32,32 @@ function set_species(spec::String = "Human")
 end
 
 function load_RefSeq()
+    
+    global ALLREFSEQ = try 
+        Base.GC.enable(false)
+        Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.jdb"))
+        Base.GC.enable(true)
+    catch
+        println("Loading $(SPECIES)_mRNA_allRefSeq failed, replace file with save_RefSeq()")
+    end
+    global GENETRANSCRIPTS = try
+        Base.GC.enable(false)
+        Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.jdb"))
+        Base.GC.enable(true)
+    catch
+        println("Loading $(SPECIES)_mRNA_GeneTranscripts failed, replace file with save_RefSeq()")
+    end
+    global TRANSCRIPTGENE = try
+        Base.GC.enable(false)
+        Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.jdb"))
+        Base.GC.enable(true)
+    catch
+        println("Loading $(SPECIES)_mRNA_TranscriptGene failed, replace file with save_RefSeq()")
+    end
+    println("Loaded $SPECIES RefSeq Successfully")
+end
+
+function load_RefSeq_old()
     global ALLREFSEQ = try 
         collect(values(BSON.load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.bson")))[1];
     catch
@@ -88,8 +114,8 @@ function download_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
         if isfile(newfile) 
             fd = gzopen(downfile)
             f = gzopen(newfile)
-            rd = hash(read(fd, String))
-            rf = hash(read(f, String))
+            rd = hash(fd)
+            rf = hash(f)
             close(fd)
             close(f)
         else
@@ -102,11 +128,11 @@ function download_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
             !(isdir("$(path)/$(SPECIES)/RefSeq $(olddir)")) && mkdir("$(path)/$(SPECIES)/RefSeq $(olddir)")
             isfile(newfile) && mv(newfile, "$(path)/$(SPECIES)/RefSeq $(olddir)/$(replace(FILEFORMAT, "X" => "$i"))", force=true)
             mv(downfile, newfile, force = true)
-            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allT.bson") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allT.bson", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_allT.bson", force=true)
-            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_df.csv", force=true)
-            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.bson") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.bson", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_GeneTranscripts.bson", force=true)
-            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.bson") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.bson", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_TranscriptGene.bson", force=true)
-            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.bson") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.bson", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_allRefSeq.bson", force=true)
+            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_table.jdb") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_table.jdb", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_table.jdb", force=true)
+            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.jdb") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.jdb", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_GeneTranscripts.jdb", force=true)
+            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.jdb") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.jdb", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_TranscriptGene.jdb", force=true)
+            isfile("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.jdb") && mv("$(path)/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.jdb", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_allRefSeq.jdb", force=true)
+            isfile("$(path)/$(SPECIES)/$(SPECIES)_TranscriptData.jdb") && mv("$(path)/$(SPECIES)/$(SPECIES)_TranscriptData.jdb", "$(path)/$(SPECIES)/RefSeq $(olddir)/$(SPECIES)_mRNA_TranscriptData.jdb", force=true)
         end
         for file in readdir("$(path)/$(SPECIES)/Download/")
             rm("$(path)/$(SPECIES)/Download/$file")
@@ -126,12 +152,13 @@ end
 Processes raw gzipped fasta files into DataFrame and saves it as a CSV in the PATH folder
 """
 function process_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
-    df = DataFrame(Transcript=String[], Range=UnitRange{Int64}[], Type=String[], Gene=String[], GeneID=Int[], Description=String[], Sequence=String[])
+    tbl = table((Transcript=String[], Range=UnitRange{Int64}[], Type=String[], Gene=String[], GeneID=Int[], Description=String[], RefSeq=ReferenceSequence[]))
     for j in num
         f = gzopen("$(path)/$(SPECIES)/$(replace(FILEFORMAT, "X" => "$j"))")
-        iter = split(read(f, String)[2:end], "LOCUS   ")
-        p = Progress(length(iter), 0.1, "Processing $(replace(FILEFORMAT, "X" => "$j")) ... ")
-        for x in iter
+        p = ProgressUnknown("Processing $(replace(FILEFORMAT, "X" => "$j")) ... ")
+        while(!eof(f))
+            x = readuntil(f, "LOCUS   ")
+            (x == "") && (x = readuntil(f, "LOCUS   "))
             v = match(r"VERSION[\s]*([NX][RM]\_[\d]*\.[\d])", x)[1]
             m = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x)
             seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U")
@@ -145,12 +172,16 @@ function process_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
             c1 = parse(Int, cs[1])
             c2 = parse(Int, cs[end])
             r = c1:c2
-            push!(df, [v, r, t, g, id, d, seq])
+            push!(rows(tbl), (Transcript=v, Range=r, Type=t, Gene=g, GeneID=id, Description=d, RefSeq=encode_refseq(seq)))
+            ProgressMeter.next!(p)
         end
-        ProgressMeter.next!(p)
+        ProgressMeter.finish!(p)
+        close(f)
     end
-    CSV.write("$(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv", df);
-    println("Processed data saved to $(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv")
+    Base.GC.enable(false)
+    save(tbl, "$(path)/$(SPECIES)/$(SPECIES)_mRNA_table.jdb")
+    Base.GC.enable(true)
+    println("Processed data saved to $(path)/$(SPECIES)/$(SPECIES)_mRNA_table")
 end
 
 
@@ -187,11 +218,13 @@ Saves relevant data structures from the processes mRNA reference sequence for us
 """
 function save_RefSeq(path::String=PATH)
     println("This may take some time")
-    println("--Loading processed data from CSV--")
-    df = CSV.read("$(path)/$(SPECIES)/$(SPECIES)_mRNA_df.csv") |> DataFrame
+    println("--Loading processed data from JDB--")
+    Base.GC.enable(false)
+    t = load("$(path)/$(SPECIES)/$(SPECIES)_mRNA_table.jdb") 
+    Base.GC.enable(true)
     println("--Saving Transcript -> Gene Dictionary--")
-    TranscriptGene = Dict(zip(df.Transcript, df.Gene))
-    @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.bson" TranscriptGene
+    TranscriptGene = JuliaDB.select(t, (:Transcript, :Gene))
+    save(TranscriptGene,"$(path)/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.jdb")
     println("--Saving Gene -> Transcript Dictionary--")
     GeneTranscripts = Dict{String, Array{String, 1}}()
     for (transcript, gene) in TranscriptGene
@@ -201,18 +234,17 @@ function save_RefSeq(path::String=PATH)
             push!(GeneTranscripts[gene], transcript)
         end
     end
-    @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.bson" GeneTranscripts
-    println("--Saving Transcript -> RNA String Dictionary--")
-    allT = Dict(zip(df.Transcript, df.Sequence))
-    @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_allT.bson" allT
-    println("--Encoding Sequence Data--")
-    allRefSeq = Dict{String, ReferenceSequence}()
-    for (k, v) in allT
-        allRefSeq[k] = encode_refseq(v)
-    end
+    Base.GC.enable(false)
+    save(table(GeneTranscripts),"$(path)/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.jdb")
+    Base.GC.enable(true)
     println("--Saving Transcript -> binary RNA Data Dictionary--")
-    @save "$(path)/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.bson" allRefSeq
+    allRefSeq = JuliaDB.select(t, (:Transcript, :RefSeq))
+    Base.GC.enable(false)
+    save(allRefSeq,"$(path)/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.jdb")
+    Base.GC.enable(true)
     println("--Saving Transcript Data--")
-    CSV.write("$(path)/$(SPECIES)/$(SPECIES)_TranscriptData.csv", df[:, [:Gene, :GeneID, :Description, :Transcript, :Range, :Type]])
+    Base.GC.enable(false)
+    save(JuliaDB.select(t, (:Gene, :GeneID, :Description, :Transcript, :Range, :Type)), "$(path)/$(SPECIES)/$(SPECIES)_TranscriptData.jdb")
+    Base.GC.enable(true)
     println("Finished!")
 end

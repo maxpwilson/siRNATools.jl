@@ -1,6 +1,5 @@
 module Specificity
-using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, BSON, Base.Threads
-using BSON: @save, @load
+using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB
 
 include("Path.jl")
 include("RNAAlphabet.jl")
@@ -255,7 +254,7 @@ function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::I
 end
 
 function Deep_Search(pattern, rg::UnitRange{Int64}=2:18) :: DataFrame
-    TranscriptData = CSV.read("$PATH/$(SPECIES)/$(SPECIES)_TranscriptData.csv") |> DataFrame
+    TranscriptData = load("$PATH/$(SPECIES)/$(SPECIES)_TranscriptData.jdb") |> DataFrame
     GeneDescription = Dict(zip(TranscriptData.Gene, TranscriptData.Description))
     GeneID = Dict(zip(TranscriptData.Gene, TranscriptData.GeneID))
     TranscriptRange = Dict(zip(TranscriptData.Transcript, TranscriptData.Range))
@@ -276,11 +275,11 @@ function Deep_Search(pattern, rg::UnitRange{Int64}=2:18) :: DataFrame
             gid = (TRANSCRIPTGENE[name] in keys(GeneID)) ? GeneID[TRANSCRIPTGENE[name]] : "na"
             gd = (TRANSCRIPTGENE[name] in keys(GeneDescription)) ? GeneDescription[TRANSCRIPTGENE[name]] : "na"
             region = []
-            tstart = (name in keys(TranscriptRange)) ? parse(Int, split(TranscriptRange[name], ":")[1]) : 1
-            tstop = (name in keys(TranscriptRange)) ? parse(Int, split(TranscriptRange[name], ":")[2]) : pos.stop
+            tstart = (name in keys(TranscriptRange)) ? TranscriptRange[name][1] : 1
+            tstop = (name in keys(TranscriptRange)) ? TranscriptRange[name][end] : pos.stop
             (tstart < pos.stop && tstop > pos.start) && (push!(region, (name in keys(TranscriptType)) ? TranscriptType[name] : "na"))
-            (tstart > pos.start) && (push!(region, "5' end"))
-            (tstop < pos.stop) && (push!(region, "3' end"))
+            (tstart > pos.start) && (push!(region, "5' UTR"))
+            (tstop < pos.stop) && (push!(region, "3' UTR"))
             push!(df, [name, gid,TRANSCRIPTGENE[name], gd, region, match, pattern, RM, m, pos])
         end
         ProgressMeter.next!(p)
