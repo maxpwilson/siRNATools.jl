@@ -1,7 +1,7 @@
 name = "siRNATools"
 uuid = "1699ad72-d0bc-11e9-37f5-0deafe9ae593"
 authors = ["maxpwilson <48170841+maxpwilson@users.noreply.github.com>"]
-version = "0.0.4"
+version = "0.0.5"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -12,6 +12,7 @@ Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterTools = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 GZip = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
+JuliaDB = "a93385a2-3734-596a-9a66-3cfbb77141e6"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
