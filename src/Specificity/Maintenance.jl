@@ -33,27 +33,23 @@ end
 
 function load_RefSeq()
     
+    Base.GC.enable(false);
     global ALLREFSEQ = try 
-        Base.GC.enable(false)
         Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.jdb"))
-        Base.GC.enable(true)
     catch
         println("Loading $(SPECIES)_mRNA_allRefSeq failed, replace file with save_RefSeq()")
     end
     global GENETRANSCRIPTS = try
-        Base.GC.enable(false)
         Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.jdb"))
-        Base.GC.enable(true)
     catch
         println("Loading $(SPECIES)_mRNA_GeneTranscripts failed, replace file with save_RefSeq()")
     end
     global TRANSCRIPTGENE = try
-        Base.GC.enable(false)
         Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.jdb"))
-        Base.GC.enable(true)
     catch
         println("Loading $(SPECIES)_mRNA_TranscriptGene failed, replace file with save_RefSeq()")
     end
+    Base.GC.enable(true);
     println("Loaded $SPECIES RefSeq Successfully")
 end
 
@@ -158,22 +154,26 @@ function process_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
         p = ProgressUnknown("Processing $(replace(FILEFORMAT, "X" => "$j")) ... ")
         while(!eof(f))
             x = readuntil(f, "LOCUS   ")
-            (x == "") && (x = readuntil(f, "LOCUS   "))
-            v = match(r"VERSION[\s]*([NX][RM]\_[\d]*\.[\d])", x)[1]
-            m = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x)
-            seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U")
-            g = match(r"\/gene=\"(\S*)\"", x)[1]
-            d = replace(match(r"\/product=\"([^\"]*)\"", x)[1], "\n                    " => "")
-            id = parse(Int, match(r"\"GeneID:([\d]*)\"", x)[1])
-            c = m[6]
-            t = m[1]
-            c = replace(replace(replace(replace(c, ">" => ""), "<" => ""), "," => ".."), "join(" => "")
-            cs = split(c, "..")
-            c1 = parse(Int, cs[1])
-            c2 = parse(Int, cs[end])
-            r = c1:c2
-            push!(rows(tbl), (Transcript=v, Range=r, Type=t, Gene=g, GeneID=id, Description=d, RefSeq=encode_refseq(seq)))
-            ProgressMeter.next!(p)
+            try
+                (x == "") && (x = readuntil(f, "LOCUS   "))
+                v = match(r"VERSION[\s]*([NX][RM]\_[\d]*\.[\d])", x)[1]
+                m = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x) 
+                seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U") 
+                g = match(r"\/gene=\"(\S*)\"", x)[1] 
+                d = replace(match(r"\/product=\"([^\"]*)\"", x)[1], "\n                    " => "") 
+                id = parse(Int, match(r"\"GeneID:([\d]*)\"", x)[1])  
+                c = m[6]
+                t = m[1]
+                c = replace(replace(replace(replace(c, ">" => ""), "<" => ""), "," => ".."), "join(" => "")
+                cs = split(c, "..")
+                c1 = parse(Int, cs[1])
+                c2 = parse(Int, cs[end])
+                r = c1:c2
+                push!(rows(tbl), (Transcript=v, Range=r, Type=t, Gene=g, GeneID=id, Description=d, RefSeq=encode_refseq(seq)))
+                ProgressMeter.next!(p)
+            catch
+                println(j)
+            end
         end
         ProgressMeter.finish!(p)
         close(f)

@@ -14,9 +14,9 @@ Takes the reverse complement of an RNA string
 """
 function reverse_complement(pattern::String) :: String
     pattern = uppercase(pattern)
-    BASES = ['A', 'C', 'G', 'U']
+    BASES = ['A', 'C', 'G', 'U', 'N']
     @assert sum([x in BASES for x in pattern]) == length(pattern)
-    complements = ['U', 'G', 'C', 'A']
+    complements = ['U', 'G', 'C', 'A', 'N']
     b_to_c = Dict{Char, Char}(zip(BASES, complements))
     r_c = ""
     for base in pattern
@@ -112,28 +112,33 @@ Function returns an array of all positions in which strings used as input differ
 """
 function mismatch_positions(seq1::String, seq2::String) :: Array{Int, 1}
     out::Array{Int, 1} = []
+    temptotal::Array{Int, 1} = []
     if length(seq1) == length(seq2)
         for i in 1:length(seq1)
             (seq1[i] != seq2[i]) && push!(out, i)
         end
     elseif length(seq1) > length(seq2)
-        out = [x for x in 1:length(seq2)]
+        temptotal = [x for x in 1:length(seq2)]
+        out = [x for x in 1:length(seq1) - length(seq2) + 1]
         for j in 1:(length(seq1) - length(seq2) + 1)
             temp::Array{Int, 1} = []
             for i in j:length(seq2) + j - 1
-                (seq1[i] != seq2[i - j + 1]) && push!(out, i)
+                (seq1[i] != seq2[i - j + 1]) && push!(temp, i)
             end
-            (length(temp) < length(out)) && (out = copy(temp))
+            (length(temp) < length(temptotal)) && (temptotal = copy(temp))
         end
+        out = vcat(out, temptotal)
     else
-        out = [x for x in 1:length(seq1)]
+        temptotal = [x for x in 1:length(seq1)]
+        out = [x for x in 1:length(seq2) - length(seq1) + 1]
         for j in 1:(length(seq2) - length(seq1) + 1)
             temp::Array{Int, 1} = []
             for i in j:length(seq1) + j - 1
-                (seq1[i - j + 1] != seq2[i]) && push!(out, i)
+                (seq1[i - j + 1] != seq2[i]) && push!(temp, i)
             end
-            (length(temp) < length(out)) && (out = copy(temp))
+            (length(temp) < length(temptotal)) && (temptotal = copy(temp))
         end
+        out = vcat(out, temptotal)
     end
     return out
 end
@@ -209,8 +214,8 @@ function final_calc(pattern::String, raw_data::Array{Tuple{String, Int64}}, comp
         gene_correction[gene] = []
     end
     for (name, match) in raw_data
-        if minimum(match) == min_match
-            match_patterns = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), min_match)
+        if minimum(match) == min_match || minimum(match) == min_match + 1
+            match_patterns = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), minimum(match))
             for match_pattern in match_patterns
                 score::Float64 = 0
                 for mismatch in mismatch_positions(pattern, match_pattern)
