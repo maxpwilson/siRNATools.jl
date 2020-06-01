@@ -151,12 +151,12 @@ Function takes as input a pattern to search the genome for, excluded_gene to exc
 a progress bar showing progress of search, and minimum\\_matches which is the amount of mismatches searched for + 1.  Output is an array of tuples of transcript names
 and the lowest Hamming distance found to the pattern within that transcript.
 """
-function find_genome_matches(pattern::String, excluded_gene::String = "",  verbose::Bool = true, minimum_matches = 5, pbar_string::String = "Searching Genome... ") :: Array{Tuple{String, Int64}}
+function find_genome_matches(pattern::String, excluded_transcripts::Array{Any, 1} = [],  verbose::Bool = true, minimum_matches = 5, pbar_string::String = "Searching Genome... ") :: Array{Tuple{String, Int64}}
     (length(ALLREFSEQ) == 0) && return []
     out::Array{Tuple{String, Int64}} = []
     (verbose ==true) && (p = Progress(length(ALLREFSEQ), 0.1, pbar_string))
     for (name, T) in ALLREFSEQ
-        (excluded_gene != "" && excluded_gene in keys(GENETRANSCRIPTS)) && ((name in GENETRANSCRIPTS[excluded_gene]) && continue)
+        (name in excluded_transcripts) && continue
         min_match = minimum_matches
         min_pos = 0
         matches = motif_to_transcript_match(calculate_Peq(pattern),length(pattern), T, minimum_matches)
@@ -259,7 +259,7 @@ function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::I
 end
 
 function Deep_Search(pattern, rg::UnitRange{Int64}=2:18) :: DataFrame
-    TranscriptData = load("$PATH/$(SPECIES)/$(SPECIES)_TranscriptData.jdb") |> DataFrame
+    TranscriptData = load("$PATH/$(SPCIES)/$(SPECIES)_TranscriptData.jdb") |> DataFrame
     GeneDescription = Dict(zip(TranscriptData.Gene, TranscriptData.Description))
     GeneID = Dict(zip(TranscriptData.Gene, TranscriptData.GeneID))
     TranscriptRange = Dict(zip(TranscriptData.Transcript, TranscriptData.Range))
@@ -312,11 +312,13 @@ function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String
     counter = Atomic{Int}(0)
     (verbose == true) && ((p = Progress(length(patterns), 0.2, "Calculating Specificity ... ")))
     (verbose == true) && (update!(p, 0))
+    excluded_transcripts::Array{String,1} = []
+    (excluded_gene != "" && excluded_gene in keys(GENETRANSCRIPTS)) && (excluded_transcripts = GENETRANSCRIPTS[excluded_gene])
     @threads for i in 1:length(patterns)
         pattern = patterns[i]
         atomic_add!(counter, 1)
         RP = reverse_complement(pattern[rg])
-        raw_data = find_genome_matches(RP, excluded_gene, false, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
+        raw_data = find_genome_matches(RP, excluded_transcripts, false, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
         compressed_data = compress_genome_matches(raw_data)
         (mismatchs, spec_score) = final_calc(RP, raw_data, compressed_data)
         push!(df, [i, pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
