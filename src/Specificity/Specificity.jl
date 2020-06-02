@@ -1,5 +1,5 @@
 module Specificity
-using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB, MemPool
+using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB, MemPool, HTTP
 
 include("Path.jl")
 include("RNAAlphabet.jl")

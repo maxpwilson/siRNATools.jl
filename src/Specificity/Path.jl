@@ -23,10 +23,13 @@ function Load_Path()
     global PATH = readline(open("$(src)/Specificity_Path.txt"))
 end
 function Load_Version()
-    if !("RefSeq_version.txt" in readdir(PATH))
-        touch("$(PATH)/RefSeq_version.txt")
+    try
+        if !("RefSeq_version.txt" in readdir(PATH))
+            touch("$(PATH)/RefSeq_version.txt")
+        end
+        global VERSION = readline(open("$(PATH)/RefSeq_version.txt"))
+    catch
     end
-    global VERSION = readline(open("$(PATH)/RefSeq_version.txt"))
 end
 
 Load_Path()
