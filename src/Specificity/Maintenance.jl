@@ -113,7 +113,7 @@ function initial_process_RefSeq()::Int
                 push!(rows(tbl), (Organism=organism, Name=name, Transcript=version, Range=r, Type=tp, Gene=gene, GeneID=id, Description=description, RefSeq=encode_refseq(seq)))
                 counter=counter+1
                 if counter % 100000 == 0
-                    i = $(Int(trunc(counter / 100000)))
+                    i = (Int(trunc(counter / 100000)))
                     Base.GC.enable(false)
                     save(tbl, "$PATH/$VERSION/Processed/DataTbl$i.jdb")
                     Base.GC.enable(true)
