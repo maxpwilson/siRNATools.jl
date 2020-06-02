@@ -1,99 +1,189 @@
 
 
-
-function load_RefSeqDB()
-    try 
-        global REFSEQDB = load("$(@__DIR__)/RefSeqDB.jdb") 
-    catch
-        println("No Reference Sequence Database was found in $(@__DIR__)")
-    end
-end
-
-load_RefSeqDB()
-
 function list_species()
-    for seq in JuliaDB.select(REFSEQDB, :Name)
-        println(seq)
+    if isdir("$(PATH)/$(VERISION)/Organisms")
+        for folder in readdir("$(PATH)/$(VERISION)/Organisms")
+            println(folder)
+        end
     end
 end
 
-function set_species(spec::String = "Human")
-    if spec in JuliaDB.select(REFSEQDB, :Name)
-        global SPECIES = spec
-        global LINK = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :Link)[1]
-        global FILEFORMAT = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :FileFormat)[1]
-        global NUM = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :Num)[1]
-        global ENCODING = JuliaDB.select(filter(i -> i.Name == spec, REFSEQDB), :Encoding)[1]
+function set_species(spec::String = "Homo sapiens")
+    if isdir("$(PATH)/$(VERISION)/Organisms")
+        if spec in readdir("$(PATH)/$(VERISION)/Organisms")
+            global SPECIES = spec
+        else
+            println("$(spec) is not avalid species")
+        end
     else
-        println("$(spec) is not an available species.")
-        println("To add $(spec) to available species add entry to $(@__DIR__)/RefSeqDB.csv")
-        println("To view available species use function list_species")
+        println("RefSeq is not downloaded or processed")
     end
 end
 
 function load_RefSeq()
-    
-    Base.GC.enable(false);
-    global ALLREFSEQ = try 
-        Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.jdb"))
-    catch
-        println("Loading $(SPECIES)_mRNA_allRefSeq failed, replace file with save_RefSeq()")
-    end
-    global GENETRANSCRIPTS = try
-        Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.jdb"))
-    catch
-        println("Loading $(SPECIES)_mRNA_GeneTranscripts failed, replace file with save_RefSeq()")
-    end
-    global TRANSCRIPTGENE = try
-        Dict(load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.jdb"))
-    catch
-        println("Loading $(SPECIES)_mRNA_TranscriptGene failed, replace file with save_RefSeq()")
-    end
-    Base.GC.enable(true);
-    println("Loaded $SPECIES RefSeq Successfully")
-end
-
-function load_RefSeq_old()
-    global ALLREFSEQ = try 
-        collect(values(BSON.load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_allRefSeq.bson")))[1];
-    catch
-        println("Loading $(SPECIES)_mRNA_allRefSeq.bson failed, replace file with save_RefSeq()")
-    end
-    global GENETRANSCRIPTS = try
-        collect(values(BSON.load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_GeneTranscripts.bson")))[1];
-    catch
-        println("Loading $(SPECIES)_mRNA_GeneTranscripts.bson failed, replace file with save_RefSeq()")
-    end
-    global TRANSCRIPTGENE = try
-        collect(values(BSON.load("$PATH/$(SPECIES)/$(SPECIES)_mRNA_TranscriptGene.bson")))[1];
-    catch
-        println("Loading $(SPECIES)_mRNA_TranscriptGene.bson failed, replace file with save_RefSeq()")
+    if isdir("$(PATH)/$(VERSION)/Organisms/$(SPECIES)")
+        Base.GC.enable(false);
+        global ALLREFSEQ = try 
+            Dict(load("$PATH/$VERSION/Organisms/$SPECIES/allRefSeq.jdb"))
+        catch
+            println("Loading allRefSeq.jdb failed, replace file with save_RefSeq()")
+        end
+        global GENETRANSCRIPTS = try
+            Dict(load("$PATH/$VERSION/Organisms/$SPECIES/GeneTranscripts.jdb"))
+        catch
+            println("Loading GeneTranscripts.jdb failed, replace file with save_RefSeq()")
+        end
+        global TRANSCRIPTGENE = try
+            Dict(load("$PATH/$VERSION/Organisms/$SPECIES/TranscriptGene.jdb"))
+        catch
+            println("Loading TranscriptGene.jdb failed, replace file with save_RefSeq()")
+        end
+        global TRANSCRIPTDATA = try
+            load("$PATH/$VERSION/Organisms/$SPECIES/TranscriptData.jdb")
+        catch
+            println("Loading TranscriptData.jdb failed.")
+        end
+        Base.GC.enable(true);
+        println("Loaded $SPECIES RefSeq Successfully")
+    else
+        println("Species not properly loaded")
     end
 end
 
+function Update_Version(version::String)
+    write("$(PATH)/RefSeq_version.txt", version);
+end
 
-function full_download_all_RefSeq()
-    for name in REFSEQDB.Name
-        set_species(name)
-        full_download_RefSeq()
+function Check_NCBI_Version()::String
+    replace(String(HTTP.get("ftp://ftp.ncbi.nlm.nih.gov/refseq/release/RELEASE_NUMBER").body), "\n" => "")
+end
+
+function download_RefSeq()
+    if VERSION == Check_NCBI_Version()
+        println("Current version is most up to date")
+    else
+        Update_Version(Check_NCBI_Version())
+        !(isdir("$PATH/$VERSION")) && mkdir("$PATH/$VERSION")
+        !(isdir("$PATH/$VERSION/Download")) && mkdir("$PATH/$VERSION/Download")
+        link = "ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian/vertebrate_mammalian.x.rna.gbff.gz"
+        i = 1
+        iMax = 282
+        while true
+            try 
+                println("Downloading vertebrate_mammalian.$(i).rna.gbff.gz")
+                download(replace(link, "x" => i), "$PATH/$VERSION/Download/vertebrate_mammalian.$(i).rna.gbff.gz")
+            catch
+                (i > iMax) && break
+            end
+            i = i + 1
+        end
+    end 
+end
+
+function initial_process_RefSeq()::Int
+    counter = 0
+    i = 0
+    tbl = table((Organism=String[], Name=String[], Transcript=String[], Range=UnitRange{Int64}[], Type=String[], Gene=String[], GeneID=Int[], Description=String[], RefSeq=ReferenceSequence[]))
+    !(isdir("$PATH/$VERSION/Processed")) && mkdir("$PATH/$VERSION/Processed")
+    for file in readdir("$PATH/$VERSION/Download")
+        f = gzopen("$PATH/$VERSION/Download/$file")
+        p = ProgressUnknown("Processing $file ... ")
+        while(!eof(f))
+            x = readuntil(f, "LOCUS   ")
+            if x != ""
+                organism="";name="";version="";r=1:1;tp="";gene="";id=1; description="";seq=""
+                try organism = match(r"ORGANISM  ([^\n]*)", x)[1] catch end
+                try name = match(r"SOURCE.*\((.*)\)", x)[1] catch end
+                try version = match(r"VERSION[\s]*([NX][RM]\_[\d]*\.[\d])", x)[1] catch end
+                try 
+                    typerange = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x)  
+                    rg = typerange[6]
+                    tp = typerange[1]
+                    rg = replace(replace(replace(replace(rg, ">" => ""), "<" => ""), "," => ".."), "join(" => "")
+                    rgs = split(rg, "..")
+                    rg1 = parse(Int, rgs[1])
+                    rg2 = parse(Int, rgs[end])
+                    r = rg1:rg2
+                catch 
+                end
+                try seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U")  catch end
+                try gene = match(r"\/gene=\"(\S*)\"", x)[1]  catch end
+                try description = match(r"DEFINITION  ([^\(\n]*)", x)[1] catch end
+                try id = parse(Int, match(r"\"GeneID:([\d]*)\"", x)[1]) catch end
+                push!(rows(tbl), (Organism=organism, Name=name, Transcript=version, Range=r, Type=tp, Gene=gene, GeneID=id, Description=description, RefSeq=encode_refseq(seq)))
+                counter=counter+1
+                if counter % 100000 == 0
+                    i = $(Int(trunc(counter / 100000)))
+                    Base.GC.enable(false)
+                    save(tbl, "$PATH/$VERSION/Processed/DataTbl$i.jdb")
+                    Base.GC.enable(true)
+                    tbl = table((Organism=String[], Name=String[], Transcript=String[], Range=UnitRange{Int64}[], Type=String[], Gene=String[], GeneID=Int[], Description=String[], RefSeq=ReferenceSequence[]))
+                end
+            end
+            ProgressMeter.next!(p)
+        end
+        ProgressMeter.finish!(p)
+    end
+    i = i + 1
+    Base.GC.enable(false)
+    save(tbl, "$PATH/$VERSION/Processed/DataTbl$i.jdb")
+    Base.GC.enable(true)
+    return i
+end
+
+function secondary_process_RefSeq(i::Int)    
+    !(isdir("$PATH/$VERSION/Organisms")) && mkdir("$PATH/$VERSION/Organisms")
+    p = ProgressMeter.Progress(i, 0.1, "Processing ... ")
+    for j in 1:i
+        Base.GC.enable(false)
+        cur_tbl = load("$PATH/$VERSION/Processed/DataTbl$j.jdb")
+        Base.GC.enable(true)
+        organisms = select(cur_tbl, :Organism) |> unique
+        r = [replace(x, ".rdb" => "") for x in readdir("$PATH/$VERSION/Organisms")]
+        for o in organisms
+            println(o)
+            o_tbl = filter(r -> r.Organism == o, cur_tbl)
+            if o in r 
+                prev_tbl = MemPool.deserialize("$PATH/$VERSION/Organisms/$(o).rdb")
+                o_tbl = merge(o_tbl, prev_tbl)
+                prev_tbl = nothing
+            end
+            MemPool.serialize("$PATH/$VERSION/Organisms/$(o).rdb", o_tbl)
+        end
+        ProgressMeter.next!(p)
+    end      
+    ProgressMeter.finish!(p)
+end
+
+function tertiary_process_RefSeq()
+    for file in readdir("$PATH/$VERSION/Organisms")
+        (file[end-3:end] != ".rdb") && continue
+        data = MemPool.deserialize("$PATH/$VERSION/Organisms/$(file)")
+        !(isdir("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))")) && mkdir("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))")
+        TranscriptGene = JuliaDB.select(data, (:Transcript, :Gene))
+        GeneTranscripts = Dict{String, Array{String, 1}}()
+        for (transcript, gene) in TranscriptGene
+            if !(haskey(GeneTranscripts, gene))
+                GeneTranscripts[gene] = [transcript]
+            else
+                push!(GeneTranscripts[gene], transcript)
+            end
+        end
+        allRefSeq = JuliaDB.select(data, (:Transcript, :RefSeq))
+        TranscriptData = JuliaDB.select(data, (:Gene, :GeneID, :Description, :Transcript, :Range, :Type))
+        MemPool.serialize("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/TranscriptGene.jdb", TranscriptGene)
+        MemPool.serialize("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/GeneTranscripts.jdb", GeneTranscripts)
+        MemPool.serialize("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/allRefSeq.jdb", allRefSeq)
+        MemPool.serialize("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/TranscriptData.jdb", TranscriptData)
+        mv("$(path)/Organisms/$(file)", "$(path)/Organisms/$(replace(file, ".rdb" => ""))/$(file)")
     end
 end
-
-function full_download_RefSeq()
-    println("Fully downloading and processing $(SPECIES) data")
-    download_RefSeq()
-    println("Download complete, beginning processing")
-    process_RefSeq()
-    println("Processing complete, beginning save")
-    save_RefSeq()
-end
-
 """
     download_RefSeq(::UnitRange{Int64}=1:8, ::String=PATH)
 
 Downloads mRNA reference sequence from ftp://ftp.ncbi.nlm.nih.gov/refseq/H\\_sapiens/mRNA\\_Prot/ to the PATH folder.  Defaults to downloading 8 files.
 """
-function download_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
+function download_RefSeq_old(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
     if !(isdir("$(path)/$(SPECIES)"))
         mkdir("$(path)/$(SPECIES)")
     end
@@ -147,7 +237,7 @@ end
 
 Processes raw gzipped fasta files into DataFrame and saves it as a CSV in the PATH folder
 """
-function process_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
+function process_RefSeq_old(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
     tbl = table((Transcript=String[], Range=UnitRange{Int64}[], Type=String[], Gene=String[], GeneID=Int[], Description=String[], RefSeq=ReferenceSequence[]))
     for j in num
         f = gzopen("$(path)/$(SPECIES)/$(replace(FILEFORMAT, "X" => "$j"))")
@@ -185,7 +275,7 @@ function process_RefSeq(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
 end
 
 
-function process_RefSeq_old(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
+function process_RefSeq_old_old(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
     println("Warning Deprecated, use process_Refseq")
     df = DataFrame(Name=String[], ID=String[], Gene=String[], Variant=UInt8[], Sequence=String[], Type=String[])
     d = Dict()
@@ -216,7 +306,7 @@ Saves relevant data structures from the processes mRNA reference sequence for us
 - allT => dictionary of Transcript name to base sequence as String
 - allRefSeq => dictionary of Transcript name to base sequence as ReferenceSequence
 """
-function save_RefSeq(path::String=PATH)
+function save_RefSeq_old(path::String=PATH)
     println("This may take some time")
     println("--Loading processed data from JDB--")
     Base.GC.enable(false)

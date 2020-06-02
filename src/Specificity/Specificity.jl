@@ -1,5 +1,5 @@
 module Specificity
-using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB
+using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB, MemPool
 
 include("Path.jl")
 include("RNAAlphabet.jl")
@@ -259,11 +259,10 @@ function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::I
 end
 
 function Deep_Search(pattern, rg::UnitRange{Int64}=2:18) :: DataFrame
-    TranscriptData = load("$PATH/$(SPCIES)/$(SPECIES)_TranscriptData.jdb") |> DataFrame
-    GeneDescription = Dict(zip(TranscriptData.Gene, TranscriptData.Description))
-    GeneID = Dict(zip(TranscriptData.Gene, TranscriptData.GeneID))
-    TranscriptRange = Dict(zip(TranscriptData.Transcript, TranscriptData.Range))
-    TranscriptType = Dict(zip(TranscriptData.Transcript, TranscriptData.Type))
+    GeneDescription = Dict(zip(TRANSCRIPTDATA.Gene, TRANSCRIPTDATA.Description))
+    GeneID = Dict(zip(TRANSCRIPTDATA.Gene, TRANSCRIPTDATA.GeneID))
+    TranscriptRange = Dict(zip(TRANSCRIPTDATA.Transcript, TRANSCRIPTDATA.Range))
+    TranscriptType = Dict(zip(TRANSCRIPTDATA.Transcript, TRANSCRIPTDATA.Type))
     df = DataFrame(Acc=String[], GeneID=Any[], GeneSymbol=String[], Description=String[], Region=Any[], MM=Int[], AS=String[], OffTarget=String[], MMPos=Any[], TranscriptLocation=Any[])
     RP = reverse_complement(pattern[rg])
     raw_data = find_genome_matches(RP)
