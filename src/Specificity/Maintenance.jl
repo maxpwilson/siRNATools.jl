@@ -1,16 +1,16 @@
 
 
 function list_species()
-    if isdir("$(PATH)/$(VERISION)/Organisms")
-        for folder in readdir("$(PATH)/$(VERISION)/Organisms")
+    if isdir("$(PATH)/$(VERSION)/Organisms")
+        for folder in readdir("$(PATH)/$(VERSION)/Organisms")
             println(folder)
         end
     end
 end
 
 function set_species(spec::String = "Homo sapiens")
-    if isdir("$(PATH)/$(VERISION)/Organisms")
-        if spec in readdir("$(PATH)/$(VERISION)/Organisms")
+    if isdir("$(PATH)/$(VERSION)/Organisms")
+        if spec in readdir("$(PATH)/$(VERSION)/Organisms")
             global SPECIES = spec
         else
             println("$(spec) is not avalid species")
@@ -63,6 +63,7 @@ function download_RefSeq()
         println("Current version is most up to date")
     else
         Update_Version(Check_NCBI_Version())
+        Load_Version()
         !(isdir("$PATH/$VERSION")) && mkdir("$PATH/$VERSION")
         !(isdir("$PATH/$VERSION/Download")) && mkdir("$PATH/$VERSION/Download")
         link = "ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian/vertebrate_mammalian.x.rna.gbff.gz"
