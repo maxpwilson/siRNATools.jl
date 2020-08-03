@@ -23,7 +23,7 @@ end
 function load_RefSeq()
     if isdir("$(PATH)/$(VERSION)/Organisms/$(SPECIES)")
         Base.GC.enable(false);
-        global ALLREFSEQ = try 
+        global ALLREFSEQ = try
             Dict(load("$PATH/$VERSION/Organisms/$SPECIES/allRefSeq.jdb"))
         catch
             println("Loading allRefSeq.jdb failed, replace file with save_RefSeq()")
@@ -70,7 +70,7 @@ function download_RefSeq(version::String=VERSION)
         i = 1
         iMax = 282
         while true
-            try 
+            try
                 println("Downloading vertebrate_mammalian.$(i).rna.gbff.gz")
                 download(replace(link, "x" => i), "$PATH/$VERSION/Download/vertebrate_mammalian.$(i).rna.gbff.gz")
             catch
@@ -78,7 +78,7 @@ function download_RefSeq(version::String=VERSION)
             end
             i = i + 1
         end
-    end 
+    end
 end
 
 function initial_process_RefSeq()::Int
@@ -96,8 +96,8 @@ function initial_process_RefSeq()::Int
                 try organism = match(r"ORGANISM  ([^\n]*)", x)[1] catch end
                 try name = match(r"SOURCE.*\((.*)\)", x)[1] catch end
                 try version = match(r"VERSION[\s]*([NX][RM]\_[\d]*\.[\d])", x)[1] catch end
-                try 
-                    typerange = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x)  
+                try
+                    typerange = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x)
                     rg = typerange[6]
                     tp = typerange[1]
                     rg = replace(replace(replace(replace(rg, ">" => ""), "<" => ""), "," => ".."), "join(" => "")
@@ -105,7 +105,7 @@ function initial_process_RefSeq()::Int
                     rg1 = parse(Int, rgs[1])
                     rg2 = parse(Int, rgs[end])
                     r = rg1:rg2
-                catch 
+                catch
                 end
                 try seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U")  catch end
                 try gene = match(r"\/gene=\"(\S*)\"", x)[1]  catch end
@@ -132,7 +132,7 @@ function initial_process_RefSeq()::Int
     return i
 end
 
-function secondary_process_RefSeq(i::Int)    
+function secondary_process_RefSeq(i::Int)
     !(isdir("$PATH/$VERSION/Organisms")) && mkdir("$PATH/$VERSION/Organisms")
     p = ProgressMeter.Progress(i, 0.1, "Processing ... ")
     for j in 1:i
@@ -144,7 +144,7 @@ function secondary_process_RefSeq(i::Int)
         for o in organisms
             println(o)
             o_tbl = filter(r -> r.Organism == o, cur_tbl)
-            if o in r 
+            if o in r
                 prev_tbl = MemPool.deserialize("$PATH/$VERSION/Organisms/$(o).rdb")
                 o_tbl = merge(o_tbl, prev_tbl)
                 prev_tbl = nothing
@@ -152,7 +152,7 @@ function secondary_process_RefSeq(i::Int)
             MemPool.serialize("$PATH/$VERSION/Organisms/$(o).rdb", o_tbl)
         end
         ProgressMeter.next!(p)
-    end      
+    end
     ProgressMeter.finish!(p)
 end
 
@@ -198,7 +198,7 @@ function download_RefSeq_old(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
         #Check if copy of file already exists and if it does compare hashes with new download
         newfile = "$(path)/$(SPECIES)/$(replace(FILEFORMAT, "X" => "$i"))"
         downfile = "$(path)/$(SPECIES)/Download/$(replace(FILEFORMAT, "X" => "$i"))"
-        if isfile(newfile) 
+        if isfile(newfile)
             fd = gzopen(downfile)
             f = gzopen(newfile)
             rd = hash(fd)
@@ -248,11 +248,11 @@ function process_RefSeq_old(num::UnitRange{Int64} = 1:NUM, path::String=PATH)
             try
                 (x == "") && (x = readuntil(f, "LOCUS   "))
                 v = match(r"VERSION[\s]*([NX][RM]\_[\d]*\.[\d])", x)[1]
-                m = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x) 
-                seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U") 
-                g = match(r"\/gene=\"(\S*)\"", x)[1] 
-                d = replace(match(r"\/product=\"([^\"]*)\"", x)[1], "\n                    " => "") 
-                id = parse(Int, match(r"\"GeneID:([\d]*)\"", x)[1])  
+                m = match(r"((\bCDS\b)|(\bncRNA\b)|(\bmisc_RNA\b)|(\brRNA\b))[\s]*(([\<\>\d]*\.\.[\<\>\d]*)|(join\([\<\>\d]*\.\.[\<\>\d]*\,[\<\>\d]*\.\.[\<\>\d]*))", x)
+                seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U")
+                g = match(r"\/gene=\"(\S*)\"", x)[1]
+                d = replace(match(r"\/product=\"([^\"]*)\"", x)[1], "\n                    " => "")
+                id = parse(Int, match(r"\"GeneID:([\d]*)\"", x)[1])
                 c = m[6]
                 t = m[1]
                 c = replace(replace(replace(replace(c, ">" => ""), "<" => ""), "," => ".."), "join(" => "")
@@ -311,7 +311,7 @@ function save_RefSeq_old(path::String=PATH)
     println("This may take some time")
     println("--Loading processed data from JDB--")
     Base.GC.enable(false)
-    t = load("$(path)/$(SPECIES)/$(SPECIES)_mRNA_table.jdb") 
+    t = load("$(path)/$(SPECIES)/$(SPECIES)_mRNA_table.jdb")
     Base.GC.enable(true)
     println("--Saving Transcript -> Gene Dictionary--")
     TranscriptGene = JuliaDB.select(t, (:Transcript, :Gene))
