@@ -58,8 +58,8 @@ function Check_NCBI_Version()::String
     replace(String(HTTP.get("ftp://ftp.ncbi.nlm.nih.gov/refseq/release/RELEASE_NUMBER").body), "\n" => "")
 end
 
-function download_RefSeq()
-    if VERSION == Check_NCBI_Version()
+function download_RefSeq(version::String=VERSION)
+    if version == Check_NCBI_Version()
         println("Current version is most up to date")
     else
         Update_Version(Check_NCBI_Version())
@@ -139,7 +139,7 @@ function secondary_process_RefSeq(i::Int)
         Base.GC.enable(false)
         cur_tbl = load("$PATH/$VERSION/Processed/DataTbl$j.jdb")
         Base.GC.enable(true)
-        organisms = select(cur_tbl, :Organism) |> unique
+        organisms = JuliaDB.select(cur_tbl, :Organism) |> unique
         r = [replace(x, ".rdb" => "") for x in readdir("$PATH/$VERSION/Organisms")]
         for o in organisms
             println(o)
@@ -176,7 +176,7 @@ function tertiary_process_RefSeq()
         MemPool.serialize("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/GeneTranscripts.jdb", GeneTranscripts)
         MemPool.serialize("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/allRefSeq.jdb", allRefSeq)
         MemPool.serialize("$PATH/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/TranscriptData.jdb", TranscriptData)
-        mv("$(path)/Organisms/$(file)", "$(path)/Organisms/$(replace(file, ".rdb" => ""))/$(file)")
+        mv("$(PATH)/$VERSION/Organisms/$(file)", "$(PATH)/$VERSION/Organisms/$(replace(file, ".rdb" => ""))/$(file)")
     end
 end
 """

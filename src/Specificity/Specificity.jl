@@ -258,14 +258,14 @@ function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::I
     df
 end
 
-function Deep_Search(pattern, rg::UnitRange{Int64}=2:18) :: DataFrame
+function Deep_Search(pattern, rg::UnitRange{Int64}=2:18, max_mismatches::Int64=5) :: DataFrame
     GeneDescription = Dict(zip(TRANSCRIPTDATA.Gene, TRANSCRIPTDATA.Description))
     GeneID = Dict(zip(TRANSCRIPTDATA.Gene, TRANSCRIPTDATA.GeneID))
     TranscriptRange = Dict(zip(TRANSCRIPTDATA.Transcript, TRANSCRIPTDATA.Range))
     TranscriptType = Dict(zip(TRANSCRIPTDATA.Transcript, TRANSCRIPTDATA.Type))
     df = DataFrame(Acc=String[], GeneID=Any[], GeneSymbol=String[], Description=String[], Region=Any[], MM=Int[], AS=String[], OffTarget=String[], MMPos=Any[], TranscriptLocation=Any[])
     RP = reverse_complement(pattern[rg])
-    raw_data = find_genome_matches(RP)
+    raw_data = find_genome_matches(RP, [], true, max_mismatches)
     (p = Progress(length(raw_data), 0.1, "Calculating ... "))
     for (name, match) in raw_data
         match_patterns = find_match_sequences(RP, decode_refseq(ALLREFSEQ[name]), match, 1, 1)
