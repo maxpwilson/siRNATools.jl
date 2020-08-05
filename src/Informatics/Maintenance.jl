@@ -11,9 +11,12 @@ end
 function set_species(spec::String = "Homo sapiens")
     if isdir("$(PATH)/$(VERSION)/Organisms")
         if spec in readdir("$(PATH)/$(VERSION)/Organisms")
+            println("$spec set")
             global SPECIES = spec
+            true
         else
             println("$(spec) is not avalid species")
+            false
         end
     else
         println("RefSeq is not downloaded or processed")
@@ -68,7 +71,7 @@ function download_RefSeq(version::String=VERSION)
         !(isdir("$PATH/$VERSION/Download")) && mkdir("$PATH/$VERSION/Download")
         link = "ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian/vertebrate_mammalian.x.rna.gbff.gz"
         i = 1
-        iMax = 282
+        iMax = 290
         while true
             try
                 println("Downloading vertebrate_mammalian.$(i).rna.gbff.gz")

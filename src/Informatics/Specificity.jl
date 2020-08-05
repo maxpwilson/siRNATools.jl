@@ -1,11 +1,3 @@
-module Specificity
-using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB, MemPool, HTTP
-
-include("Path.jl")
-include("RNAAlphabet.jl")
-include("RefSeq.jl")
-include("Maintenance.jl")
-include("SNPs.jl")
 
 """
     reverse_complement(::String) :: String
@@ -151,12 +143,11 @@ Function takes as input a pattern to search the genome for, excluded_gene to exc
 a progress bar showing progress of search, and minimum\\_matches which is the amount of mismatches searched for + 1.  Output is an array of tuples of transcript names
 and the lowest Hamming distance found to the pattern within that transcript.
 """
-function find_genome_matches(pattern::String, excluded_transcripts::Array{Any, 1} = [],  verbose::Bool = true, minimum_matches = 5, pbar_string::String = "Searching Genome... ") :: Array{Tuple{String, Int64}}
+function find_genome_matches(pattern::String, verbose::Bool = true, minimum_matches = 5, pbar_string::String = "Searching Genome... ") :: Array{Tuple{String, Int64}}
     (length(ALLREFSEQ) == 0) && return []
     out::Array{Tuple{String, Int64}} = []
     (verbose ==true) && (p = Progress(length(ALLREFSEQ), 0.1, pbar_string))
     for (name, T) in ALLREFSEQ
-        (name in excluded_transcripts) && continue
         min_match = minimum_matches
         min_pos = 0
         matches = motif_to_transcript_match(calculate_Peq(pattern),length(pattern), T, minimum_matches)
@@ -201,37 +192,41 @@ end
 Function takes as input the pattern being searched for, the raw\\_data from [find\\_genome\\_matches](@ref), and the compressed data from [compress\\_genome\\_matches](@ref).
 Ouput is a Tuple containing the mismatch_counts dictionary which adds up the number of genes with a minimum Hamming distance of 0-4, and the specificity score.
 """
-function final_calc(pattern::String, raw_data::Array{Tuple{String, Int64}}, compressed_data::Dict{String,Array{Int64, 1}})
+function final_calc(pattern::String, raw_data::Array{Tuple{String, Int64}}, compressed_data::Dict{String,Array{Int64, 1}}, excluded_transcripts, excluded_gene)
     mismatch_counts = Dict{Int64, Int64}([x => 0 for x in 0:4])
     gene_correction = Dict()
     transcript_list = []
     min_score::Float64 = 5
     min_match::Int64 = 5
     for (gene, matches) in compressed_data
-        filter!(x -> x == minimum(matches), matches)
-        mismatch_counts[minimum(matches)] += 1
-        (minimum(matches) < min_match) && (min_match = minimum(matches))
-        gene_correction[gene] = []
+        if gene != excluded_gene
+            filter!(x -> x == minimum(matches), matches)
+            mismatch_counts[minimum(matches)] += 1
+            (minimum(matches) < min_match) && (min_match = minimum(matches))
+            gene_correction[gene] = []
+        end
     end
     for (name, match) in raw_data
-        if minimum(match) == min_match || minimum(match) == min_match + 1
-            match_patterns = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), minimum(match))
-            for match_pattern in match_patterns
-                score::Float64 = 0
-                for mismatch in mismatch_positions(pattern, match_pattern)
-                    if mismatch in 1:7
-                        score += 1
-                    elseif mismatch in 8:9
-                        score += 1.2
-                    elseif mismatch == 10
-                        score += 1.25
-                    elseif mismatch == 11
-                        score += 1.5
-                    else
-                        score += 1.9
+        if !(name in excluded_transcripts)
+            if minimum(match) == min_match || minimum(match) == min_match + 1
+                match_patterns = find_match_sequences(pattern, decode_refseq(ALLREFSEQ[name]), minimum(match))
+                for match_pattern in match_patterns
+                    score::Float64 = 0
+                    for mismatch in mismatch_positions(pattern, match_pattern)
+                        if mismatch in 1:7
+                            score += 1
+                        elseif mismatch in 8:9
+                            score += 1.2
+                        elseif mismatch == 10
+                            score += 1.25
+                        elseif mismatch == 11
+                            score += 1.5
+                        else
+                            score += 1.9
+                        end
                     end
+                    (score < min_score) && (min_score = score)
                 end
-                (score < min_score) && (min_score = score)
             end
         end
     end
@@ -259,13 +254,13 @@ function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::I
 end
 
 function Deep_Search(pattern, rg::UnitRange{Int64}=2:18, max_mismatches::Int64=5) :: DataFrame
-    GeneDescription = Dict(zip(TRANSCRIPTDATA.Gene, TRANSCRIPTDATA.Description))
-    GeneID = Dict(zip(TRANSCRIPTDATA.Gene, TRANSCRIPTDATA.GeneID))
-    TranscriptRange = Dict(zip(TRANSCRIPTDATA.Transcript, TRANSCRIPTDATA.Range))
-    TranscriptType = Dict(zip(TRANSCRIPTDATA.Transcript, TRANSCRIPTDATA.Type))
+    GeneDescription = Dict(zip(JuliaDB.select(TRANSCRIPTDATA, :Gene), JuliaDB.select(TRANSCRIPTDATA, :Description)))
+    GeneID = Dict(zip(JuliaDB.select(TRANSCRIPTDATA, :Gene), JuliaDB.select(TRANSCRIPTDATA, :GeneID)))
+    TranscriptRange = Dict(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Range)))
+    TranscriptType = Dict(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Type)))
     df = DataFrame(Acc=String[], GeneID=Any[], GeneSymbol=String[], Description=String[], Region=Any[], MM=Int[], AS=String[], OffTarget=String[], MMPos=Any[], TranscriptLocation=Any[])
     RP = reverse_complement(pattern[rg])
-    raw_data = find_genome_matches(RP, [], true, max_mismatches)
+    raw_data = find_genome_matches(RP, true, max_mismatches)
     (p = Progress(length(raw_data), 0.1, "Calculating ... "))
     for (name, match) in raw_data
         match_patterns = find_match_sequences(RP, decode_refseq(ALLREFSEQ[name]), match, 1, 1)
@@ -317,16 +312,12 @@ function Calculate_Specificity(patterns::Array{String, 1}, excluded_gene::String
         pattern = patterns[i]
         atomic_add!(counter, 1)
         RP = reverse_complement(pattern[rg])
-        raw_data = find_genome_matches(RP, excluded_transcripts, false, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
+        raw_data = find_genome_matches(RP, false, 5, "Searching strand $(counter) of $(length(patterns)) ... ")
         compressed_data = compress_genome_matches(raw_data)
-        (mismatchs, spec_score) = final_calc(RP, raw_data, compressed_data)
+        (mismatchs, spec_score) = final_calc(RP, raw_data, compressed_data, excluded_transcripts, excluded_gene)
         push!(df, [i, pattern, mismatchs[0], mismatchs[1], mismatchs[2], mismatchs[3], mismatchs[4], spec_score])
         (verbose == true) && ProgressMeter.next!(p)
     end
     sort!(df, :ID)
     df
-end
-
-export Calculate_Specificity, ReferenceSequence
-
 end
