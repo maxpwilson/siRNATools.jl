@@ -1,5 +1,3 @@
-using DataFrames, CSV, Flux, Query
-using BSON: @save, @load
 
 function get_prediction(model::Chain, x::Array{Int64,1}, rnd=true::Bool) :: Float64
     pred = Flux.data(model(x))[1]

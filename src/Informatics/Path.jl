@@ -6,7 +6,7 @@ if !("Specificity_Path.txt" in readdir(src))
 end
 
 if !isdir(readline(open("$(src)/Specificity_Path.txt")))
-    println("Current specified Path does not exist.  Update using siRNATools.Specificity.Update_Path(PATH). Then re-building siRNATools ")
+    println("Current specified Path does not exist.  Update using siRNATools.Informatics.Update_Path(PATH).")
 end
 
 """
@@ -15,7 +15,7 @@ end
 Updates default value for constant PATH.  All created or downloaded files are put into PATH directory or sub-directory created by that function.
 Persistent on each computer, but needs to be updated after install before calculating specificity.
 """
-function Update_Path(PATH::String) 
+function Update_Path(PATH::String)
     write("$(src)/Specificity_Path.txt", PATH);
 end
 
