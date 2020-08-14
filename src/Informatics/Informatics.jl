@@ -8,6 +8,7 @@ include("Maintenance.jl")
 include("GenerateMers.jl")
 include("SNPs.jl")
 include("Specificity.jl")
+include("miRNA.jl")
 include("BatchProcesses.jl")
 
 export Calculate_Specificity, Deep_Search, getSnps, set_species, list_species, load_RefSeq, Batch_OTA, Batch_Counts

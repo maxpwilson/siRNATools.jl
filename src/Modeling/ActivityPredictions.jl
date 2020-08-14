@@ -68,7 +68,7 @@ end
 function load_model(filename::String) :: Chain
     model = Chain{}
     try
-        @load filename model
+        BSON.@load filename model
         return model
     catch
         error("Failed to load model $filename")
