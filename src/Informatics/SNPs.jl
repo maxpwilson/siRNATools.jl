@@ -1,3 +1,13 @@
+function getSNP_CSV(AccID, k=21)
+	df = getSnps(AccID, k)
+	CSV.write("$(PATH)/Output_Files/SNP_$(AccID).csv", df)
+end
+
+function getSNP_Excel(AccID, k=21)
+	df = getSnps(AccID, k)
+	SNP_ExcelFile(df, "SNP_$(TRANSCRIPTGENE[AccID]).xlsx")
+end
+
 function getSnps(AccID::String, k::Int = 21)
 	df = Gen_Kmer(k, AccID)
 	df.Pos = [i:i+20 for i in 1:length(df.Sequence)]
@@ -6,13 +16,13 @@ function getSnps(AccID::String, k::Int = 21)
 	GeneName = TRANSCRIPTGENE[AccID]
 	@assert GeneName != ""
 	for j in readdir("$(PATH)/SNPs")
-		if occursin("$(GeneName):", j)
+		if occursin(Regex("^$(GeneName):"), j)
 			GeneNum = parse(Int, match(r":([0-9]*)", j)[1])
 		end
 	end
 	@assert GeneNum != 0
-	gene_snps = CSV.read("$(PATH)/SNPs/$GeneName:$GeneNum.csv")
-	chr_all = CSV.read("$(PATH)/chrAll.csv")
+	gene_snps = CSV.read("$(PATH)/SNPs/$GeneName:$GeneNum.csv", DataFrame)
+	chr_all = CSV.read("$(PATH)/chrAll.csv", DataFrame)
 	str_rgs = chr_all[chr_all.Transcript.==AccID, :].ChrRange[1]
 	rgs = StringToRgs(str_rgs)
 	gene_snps_in = gene_snps[in_transcript.(gene_snps.Pos, [rgs for _ in gene_snps.Pos]), :]
@@ -41,7 +51,6 @@ function getSnps(AccID::String, k::Int = 21)
 		df[x, :].SNP_Pos_hFreq = join([i - df.Pos[x][1] + 1 for i in gene_snps_in_x[gene_snps_in_x.Freq .>= 0.01, :].TranscriptPos], ",")
 		df[x, :].SNP_Freq_hFreq = join(gene_snps_in_x[gene_snps_in_x.Freq .>= 0.01, :].Freq, ";")
 	end
-
 	df
 end
 

@@ -91,9 +91,18 @@ function find_match_sequences(motif::String, sequence::String, mismatches::Int, 
     for i in 1:(length(sequence) - length(motif) + 1)
         (i - tail > 0) ? start = i - tail : start = 1
         (i + length(motif) - 1 + head <= length(sequence)) ? stop = i + length(motif) - 1 + head : stop = length(sequence)
-        (evaluate(Hamming(), motif, sequence[i:i+length(motif) - 1]) == mismatches) && push!(mtchs, sequence[start:stop])
+        (HammingDist(motif, sequence[i:i+length(motif) - 1]) == mismatches) && push!(mtchs, sequence[start:stop])
     end
     return mtchs
+end
+
+function HammingDist(s1::String, s2::String) :: Int
+    @assert length(s1) == length(s2)
+    total = 0
+    for i in 1:length(s1)
+        (s1[i] != s2[i]) && (total += 1)
+    end
+    total
 end
 
 
@@ -253,7 +262,7 @@ function excluded_gene_match(pattern::String, excluded_gene::String, matchnum::I
     df
 end
 
-function Deep_Search(pattern, rg::UnitRange{Int64}=2:18, max_mismatches::Int64=5) :: DataFrame
+function Deep_Search(pattern; rg::UnitRange{Int64}=2:18, max_mismatches::Int64=5) :: DataFrame
     GeneDescription = Dict(zip(JuliaDB.select(TRANSCRIPTDATA, :Gene), JuliaDB.select(TRANSCRIPTDATA, :Description)))
     GeneID = Dict(zip(JuliaDB.select(TRANSCRIPTDATA, :Gene), JuliaDB.select(TRANSCRIPTDATA, :GeneID)))
     TranscriptRange = Dict(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Range)))
@@ -279,7 +288,7 @@ function Deep_Search(pattern, rg::UnitRange{Int64}=2:18, max_mismatches::Int64=5
             (tstart < pos.stop && tstop > pos.start) && (push!(region, (name in keys(TranscriptType)) ? TranscriptType[name] : "na"))
             (tstart > pos.start) && (push!(region, "5' UTR"))
             (tstop < pos.stop) && (push!(region, "3' UTR"))
-            push!(df, [name, gid,TRANSCRIPTGENE[name], gd, region, match, pattern, RM, m, pos])
+            push!(df, [name, gid,TRANSCRIPTGENE[name], gd, join(region, ","), match, pattern[1:19], RM, join(m, ","), pos])
         end
         ProgressMeter.next!(p)
     end

@@ -1,67 +1,15 @@
 
-function Load_miRBASE_Version()
-    try
-        if !("miRBASE_version.txt" in readdir(PATH))
-            touch("$(PATH)/miRBASE_version.txt")
-        end
-        global MIRBASE_VERSION = readline(open("$(PATH)/miRBASE_version.txt"))
-    catch
-    end
+function save_miRNA_matches(pat, name, sense::Bool = false)
+    df = get_miRNA_matches(pat, sense)
+    miRNA_ExcelFile(df, name)
+    #CSV.write("$(PATH)/Output_Files/$(name)", df)
 end
 
-function Update_miRBASE_Version(version::String)
-    write("$(PATH)/miRBASE_version.txt", version);
+function get_miRNA_matches(pat, sense::Bool = false)::DataFrame
+    df = MIRBASE |> DataFrame
+    sense && (pat = reverse_complement(pat))
+    index = [i[2:7] == pat[2:7] for i in df.Seq]
+    df = sort!(df[index, :], [:CommonName, :Organism])
+    replace!(df.CommonName, missing => "Not Found")
+    df
 end
-
-function Check_miRBASE_Version()::String
-    r = readline(open(download("ftp://mirbase.org/pub/mirbase/CURRENT/README")))
-    try
-        match(r"Release ([0-9\.]*)", r)[1]
-    catch
-        "NA"
-    end
-end
-
-
-function download_miRBASE()
-    ver = Check_miRBASE_Version()
-    if !(ver in readdir("$(PATH)/miRNA/"))
-        mkdir("$(PATH)/miRNA/$ver")
-        mkdir("$(PATH)/miRNA/$ver/Download")
-        mkdir("$(PATH)/miRNA/$ver/Processed")
-    end
-    download("ftp://mirbase.org/pub/mirbase/CURRENT/mature.fa.gz", "$(PATH)/miRNA/$ver/Download/mature_miRBASE.fa.gz")
-    Update_miRBASE_Version(ver)
-end
-function process_miRBASE()
-    f = gzopen("$(PATH)/miRNA/$MIRBASE_VERSION/Download/mature_miRBASE.fa.gz")
-    r = read(f, String)
-    s = split(r, ">")[2:end]
-    df = DataFrame(PrevID=String[], ID=String[], Organism=String[], Family=String[], Seq=String[])
-    for x in s
-        previd = try match(r"(\S*)", x)[1]
-        catch
-            "NA"
-        end
-        id = try match(r"\S*\s(\S*)", x)[1]
-        catch
-            "NA"
-        end
-        organism = try match(r"([A-Z][a-z]*\s[a-z]*)", x)[1]
-        catch
-            "NA"
-        end
-        family = try match(r"([^\n\s]*)\n", x)[1]
-        catch
-            "NA"
-        end
-        seq = try match(r"\n([^\n\s]*)\n", x)[1]
-        catch
-            "NA"
-        end
-        push!(df, [previd, id, organism,family,seq])
-    end
-    CSV.write("$(PATH)/miRNA/$(MIRBASE_VERSION)/Processed/miRBASE.csv", df)
-end
-
-Load_miRBASE_Version()
