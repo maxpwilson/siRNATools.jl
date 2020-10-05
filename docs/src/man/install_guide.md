@@ -5,18 +5,13 @@ First download and install Julia from [here](https://julialang.org/downloads/) i
 Next start Julia and type ] into the command line.  The screen should look like below.
 
 ```julia
-(v1.3) Pkg> 
+(v1.5) Pkg>
 
 ```
 
-Next add the dependencies as shown below.
-```julia
-(v1.3) Pkg> add CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, BSON, Flux, Query, PyCall
-```
-
-Finally install the package.
+Then type the below code to install package
 
 ```julia
-(v1.3) Pkg> add https://github.com/maxpwilson/siRNATools.jl.git
+(v1.5) Pkg> add https://github.com/maxpwilson/siRNATools.jl.git
 
 ```

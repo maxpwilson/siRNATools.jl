@@ -2,22 +2,19 @@
 
 *A Package with tools for siRNA*
 
-Package was made using Julia 1.3.0.  
+Package was made using Julia 1.5.1.  
 
-## Specificity
+## Informatics
 
 ```@contents
 Pages = [
-    "man/spec_guide.md",
-    "man/spec_index.md"
+    "man/Informatics/batch_index.md"
 ]
 ```
 
-## Activity
+## Modeling
 
 ```@contents
 Pages = [
-    "man/act_guide.md",
-    "man/act_index.md"
 ]
 ```
