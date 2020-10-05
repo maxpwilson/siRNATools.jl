@@ -32,13 +32,13 @@ function Load_Version()
     end
 end
 function Load_ENSEMBL_Version()
-    #try
+    try
         if !("ENSEMBL_version.txt" in readdir("$(PATH)/Ensembl/"))
             touch("$(PATH)/Ensembl/ENSEMBL_version.txt")
         end
         global ENSEMBL_VERSION = readline(open("$(PATH)/Ensembl/ENSEMBL_version.txt"))
-    #catch
-    #end
+    catch
+    end
 end
 
 Load_Path()
