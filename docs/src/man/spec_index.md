@@ -1,4 +1,4 @@
-# Specificity Functions
+ Specificity Functions
 
 ```@index
 ```

@@ -27,7 +27,7 @@ After the reference sequence raw files are downloaded they have to be processed 
 julia> siRNATools.Specificity.process_RefSeq()
 ```
 
-Finally the correct datatypes have to be saved as their own BSON files by [`save_RefSeq`](@ref).  This could take a significant amount of time. 
+Finally the correct datatypes have to be saved as their own BSON files by [`save_RefSeq`](@ref).  This could take a significant amount of time.
 ```julia
 julia> siRNATools.Specificity.save_RefSeq()
 ```
