@@ -51,7 +51,7 @@ function decode_refseq(refseq::ReferenceSequence)
     i = 1
     for d in refseq.data
         for r in 0:2:62
-            if refseq.nmask[i] 
+            if refseq.nmask[i]
                 out *= 'N'
             else
                 out *= BIT_BASES[d >> r & 0b11]
@@ -71,7 +71,7 @@ Function which takes a ReferenceSequence type and outputs specificied range of b
 function decode_refseq_partial(refseq::ReferenceSequence, rg::UnitRange)::String
     out = ""
     for j in rg
-        out *= BIT_BASES[get_refseq_pos(refseq, j)]
+        @inbounds out *= BIT_BASES[get_refseq_pos(refseq, j)]
     end
     out
 end
@@ -82,9 +82,12 @@ end
 
 Function to retrieve bit value of base at specificied position in a reference sequence.
 """
-function get_refseq_pos(refseq, pos)
-    @assert(pos >= 1 && pos <= refseq.length)
-    i = cld(pos, 32)
-    j = (pos - (32 * (i - 1)) - 1) * 2
-    refseq.data[i] >> j & 0b11
+function get_refseq_pos(refseq::ReferenceSequence, pos)::UInt64
+    get_refseq_pos(refseq, UInt64(pos))
+end
+function get_refseq_pos(refseq::ReferenceSequence, pos::UInt64)::UInt64
+    @assert(pos in 1:refseq.length)
+    i::Int = cld(pos, 32)
+    j::Int = (pos - (32 * (i - 1)) - 1) * 2
+    @inbounds refseq.data[i] >> j & 0b11
 end

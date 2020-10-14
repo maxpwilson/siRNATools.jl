@@ -1,6 +1,8 @@
 module Informatics
-using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB, MemPool, HTTP, PyCall, FTPClient
+using CSV, DataFrames, StatsBase, StringDistances, GZip, ProgressMeter, Base.Threads, JuliaDB, MemPool, HTTP, PyCall, FTPClient, Telegram
+using Parameters: @with_kw
 
+include("Bot.jl")
 include("Path.jl")
 include("RNAAlphabet.jl")
 include("RefSeq.jl")
@@ -9,7 +11,9 @@ include("dbENSEMBL.jl")
 include("dbMIRBASE.jl")
 include("dbNCBI.jl")
 include("GeneralFunctions.jl")
+include("Structs.jl")
 include("SNPs.jl")
+include("Search.jl")
 include("Specificity.jl")
 include("miRNA.jl")
 include("BatchProcesses.jl")

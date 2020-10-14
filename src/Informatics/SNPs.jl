@@ -6,6 +6,7 @@ end
 function getSNP_Excel(AccID, k=21)
 	df = getSnps(AccID, k)
 	SNP_ExcelFile(df, "SNP_$(TRANSCRIPTGENE[AccID]).xlsx")
+    sendUpdate("Finished SNP_$(TRANSCRIPTGENE[AccID])")
 end
 
 function getSnps(AccID::String, k::Int = 21)

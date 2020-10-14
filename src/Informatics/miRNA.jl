@@ -2,6 +2,7 @@
 function save_miRNA_matches(pat, name, sense::Bool = false)
     df = get_miRNA_matches(pat, sense)
     miRNA_ExcelFile(df, name)
+    sendUpdate("Finished $(replace(name, ".xlsx" => ""))")
     #CSV.write("$(PATH)/Output_Files/$(name)", df)
 end
 

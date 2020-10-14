@@ -3,7 +3,7 @@ function get_transcripts(species::Array{String, 1}, Gene::String) :: DataFrame
     for x in species
         if set_species(x, verbose=false)
             load_RefSeq(verbose=false)
-            g = find_gene(Gene, x)
+            g = find_gene(Gene)
             if g in keys(GENETRANSCRIPTS)
                 for t in GENETRANSCRIPTS[g]
                     s = decode_refseq(ALLREFSEQ[t])

@@ -76,7 +76,9 @@ function load_RefSeq(;verbose::Bool=true)
         end
         Base.GC.enable(true);
         (verbose) && println("Loaded $SPECIES RefSeq Successfully")
+        true
     else
         (verbose) && println("Species not properly loaded")
+        false
     end
 end

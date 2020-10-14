@@ -6,7 +6,23 @@ function gene_name_variants(gene::String)
     (gene != uppercase(gene[1]) * lowercase(gene[2:end])) && push!(out, uppercase(gene[1]) * lowercase(gene[2:end]))
     out
 end
-function get_transcripts(gene::String, species=[])
+function get_transcripts_ensembl(gene::String)
+    df = DataFrame(ENSEMBLDATA)
+    df_out = df[df.Gene .== find_gene(gene), :]
+end
+function save_transcripts_ensembl(gene::String, species::Array{String,1}=["Human"])
+    df = DataFrame(Species=String[], Accession=String[], Gene=String[], Description=String[], Sequence=String[])
+    for spec in species
+        if set_species(spec)
+            load_RefSeq()
+            tdf = DataFrame(ENSEMBLDATA)
+            tdf[!, :Species] .= spec
+            df = vcat(df, tdf[tdf.Gene .== find_gene(gene), :])
+        end
+    end
+    CSV.write("$(PATH)/Output_Files/ENSEMBL_$(gene)_$(join(species, "")).csv", df)
+end
+function get_transcripts_ncbi(gene::String, species=[])
     if length(species) == 0
         species = readdir("$(PATH)/$(VERSION)/Organisms")
     end
