@@ -8,6 +8,7 @@ function Check_ENSEMBL_Version()::String
 end
 
 function download_ensembl(species)
+    Load_ENSEMBL_Version()
     ver = Check_ENSEMBL_Version()
     if ENSEMBL_VERSION != ver
         Update_ENSEMBL_Version(ver)

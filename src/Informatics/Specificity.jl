@@ -40,6 +40,51 @@ function compress_genome_matches(raw_data::Array{MismatchLocus,1}, args::SpecArg
     out
 end
 
+
+function expression_processing(dfs :: Array{DataFrame, 1}, species, expression) :: Array{DataFrame, 1}
+    dfs_out = Array{DataFrame, 1}()
+    for (i, spec) in enumerate(species)
+        df = dfs[i]
+        !(spec in keys(expression)) && (expression[spec] = [])
+        for tissue in expression[spec]
+            try
+                df_tissue = CSV.read("$(PATH)/Expression/$(find_longname(spec))/tissue/$(tissue).csv", DataFrame)
+                df_tissue = df_tissue[:, vcat(filter(i->occursin(tissue, i), names(df_tissue)), "GeneSymbol")]
+                rename!(df_tissue, vcat([i*="_expression" for i in filter(i->occursin(tissue, i), names(df_tissue))] , "GeneSymbol"))
+                df = DataFrames.leftjoin(df, df_tissue, on=:GeneSymbol)
+            catch
+                print("Tissue $(tissue) not found")
+            end
+        end
+        push!(dfs_out, df)
+    end
+    dfs_out
+end
+
+function homology_processing(dfs :: Array{DataFrame, 1}, species) :: Array{DataFrame, 1}
+    checker = Dict{String, Dict{String, Tuple{Array{Any,1},Array{String,1}}}}()
+    for (i, spec) in enumerate(species)
+        df = dfs[i]
+        d = Dict{String, Tuple{Array{Any,1},Array{String,1}}}()
+        for gene in df.GeneSymbol
+            d[uppercase(gene)] = (df[df.GeneSymbol .== gene, :].MMPos, replace([k[2:17] for k in df[df.GeneSymbol .== gene, :].OffTarget], r"[A-Z]" => ""))
+        end
+        checker[spec] = d
+    end
+    dfs_out = Array{DataFrame, 1}()
+    for (i, spec) in enumerate(species)
+        df = dfs[i]
+        for s in filter(i -> i != spec, species)
+            column = [uppercase(i) in keys(checker[s]) ?
+            ((length(intersect(checker[s][uppercase(i)][1], checker[spec][uppercase(i)][1])) > 0) ?
+            ((length(intersect(checker[s][uppercase(i)][2], checker[spec][uppercase(i)][2])) > 0) ? 3 : 2) : 1) : 0 for i in df.GeneSymbol]
+            df[!, "$(s)_homology"] = column
+        end
+        push!(dfs_out, df)
+    end
+    return dfs_out
+end
+
 function Deep_Search(pattern::String; kw::Base.Iterators.Pairs...)::DataFrame
     Args::SpecArgs = SpecArgs(; kw...)
     GeneDescription = Dict{String, String}(zip(JuliaDB.select(TRANSCRIPTDATA, :Gene), JuliaDB.select(TRANSCRIPTDATA, :Description)))
@@ -47,15 +92,18 @@ function Deep_Search(pattern::String; kw::Base.Iterators.Pairs...)::DataFrame
     TranscriptRange = Dict{String,UnitRange{Int64}}(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Range)))
     TranscriptType = Dict{String,String}(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Type)))
 
-    df::DataFrame = DataFrame(Acc=String[], GeneID=Any[], GeneSymbol=String[], Description=String[], Region=Any[], MM=Int[], AS=String[], OffTarget=String[], MMPos=Any[], TranscriptLocation=Any[])
+    df::DataFrame = DataFrame(Acc=String[], GeneID=Any[], GeneSymbol=String[], Description=String[], Region=Any[], MM=Int[], AS=String[], OffTarget=String[], MMPos=Any[], MMChange=Any[], TranscriptLocation=Any[])
 
     raw_data::Array{MismatchLocus,1} = find_genome_matches(pattern, Args)
     for loc in raw_data
         gid::Any = (loc.gene in keys(GeneID)) ? GeneID[loc.gene] : "na"
         gd::String = (loc.gene in keys(GeneDescription)) ? GeneDescription[loc.gene] : "na"
+        mmchange::String=""
         tmotif = loc.transcriptmotif
         for k in loc.mismatches
             tmotif = tmotif[1:k-1] * lowercase(tmotif[k]) * tmotif[k+1:end]
+            (length(mmchange) != 0) && (mmchange *= ",")
+            mmchange *= "$(loc.motif[k])=>$(loc.transcriptmotif[k])"
         end
         region::Array{String,1} = []
         tstart::Int = (loc.transcript in keys(TranscriptRange)) ? TranscriptRange[loc.transcript][1] : 1
@@ -64,7 +112,7 @@ function Deep_Search(pattern::String; kw::Base.Iterators.Pairs...)::DataFrame
         (tstart > loc.location[1]) && (push!(region, "5' UTR"))
         (tstop < loc.location[end]) && (push!(region, "3' UTR"))
 
-        push!(df, [loc.transcript, gid, loc.gene, gd, join(region, ","), loc.difference, loc.motif, tmotif, join(string.(loc.mismatches), ","), loc.location])
+        push!(df, [loc.transcript, gid, loc.gene, gd, join(region, ","), loc.difference, loc.motif, tmotif, join(string.(loc.mismatches), ","), mmchange, loc.location])
     end
     df
 end

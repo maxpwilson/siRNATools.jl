@@ -24,9 +24,11 @@ end
     rg::UnitRange{Int64} = 2:18
     excluded_gene::String = ""
     anti::Bool = true
+    expression::Dict{String, Array{String,1}} = Dict{String, Array{String,1}}()
+    snps::Bool = false
     species::Array{String, 1} = ["Human", "Cyno", "Rat", "Mouse", "Rhesus"]
 end
 
 function copy(s::SpecArgs)::SpecArgs
-    SpecArgs(verbose=s.verbose,min_mm=s.min_mm,rg=s.rg,excluded_gene=s.excluded_gene,anti=s.anti,species=s.species)
+    SpecArgs(verbose=s.verbose,min_mm=s.min_mm,rg=s.rg,excluded_gene=s.excluded_gene,anti=s.anti,species=s.species,snps=s.snps,expression=s.expression)
 end

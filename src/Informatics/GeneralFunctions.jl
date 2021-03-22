@@ -4,6 +4,9 @@
 
 Takes the reverse complement of an RNA string
 """
+function reverse_complement(pattern)::String
+    reverse_complement(String(pattern))
+end
 function reverse_complement(pattern::String)::String
     pattern = uppercase(pattern)
     BASES::Array{Char,1} = ['A', 'C', 'G', 'U', 'N']
@@ -42,6 +45,9 @@ function find_gene(gene::String)::String
     #if SPECIES != find_longname(species)
     #    (set_species(species)) ? load_RefSeq() : return ""
     #end
+    if length(gene) == 0
+        return ""
+    end
     if gene in keys(GENETRANSCRIPTS)
         return gene
     elseif lowercase(gene) in keys(GENETRANSCRIPTS)
@@ -50,6 +56,8 @@ function find_gene(gene::String)::String
         return uppercase(gene)
     elseif uppercase(gene[1]) * lowercase(gene[2:end]) in keys(GENETRANSCRIPTS)
         return uppercase(gene[1]) * lowercase(gene[2:end])
+    else
+        return ""
     end
 end
 

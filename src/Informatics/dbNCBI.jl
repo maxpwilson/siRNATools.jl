@@ -19,7 +19,7 @@ function download_RefSeq(version::String=VERSION)
         !(isdir("$PATH/$VERSION/Download")) && mkdir("$PATH/$VERSION/Download")
         link = "ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian/vertebrate_mammalian.x.rna.gbff.gz"
         i = 1
-        iMax = 290
+        iMax = 400
         while true
             try
                 println("Downloading vertebrate_mammalian.$(i).rna.gbff.gz")
@@ -30,6 +30,12 @@ function download_RefSeq(version::String=VERSION)
             i = i + 1
         end
     end
+end
+
+function process_RefSeq(; primary::Bool=true, secondary::Bool=true, tertiary::Bool=true, i::Int=0)
+    (primary == true) && (i = initial_process_RefSeq())
+    (secondary == true) && (secondary_process_RefSeq(i))
+    (tertiary == true) && (tertiary_process_RefSeq())
 end
 
 function initial_process_RefSeq()::Int

@@ -6,7 +6,17 @@ Takes as input an array of species, patterns, and positions and creates OTA exce
 species indicated. Length of pattern and position arrays must be the same. Gene input is only used in excel file naming. Range of sequence
 can be optionally specified as well as the number of mismatches to include up to. Defaults are positions 2-18 of each pattern and 4 mismatches.
 """
-function Batch_OTA(Gene::String, Patterns::Array{String,1}, Positions::Array{Int,1}; kw...)
+function Batch_OTA(Gene::String, Positions::Array{Int,1}; kw...)
+    set_species()
+    load_RefSeq()
+    Patterns = Array{String,1}()
+    for p in Positions
+        push!(Patterns, Program_Position(Gene, p))
+    end
+    Batch_OTA(Gene, Patterns, Positions; kw...)
+end
+#a
+function Batch_OTA(Gene::String, Patterns::Array{String,1}, Positions::Array{Int,1}; message::Bool=true, kw...)
     Args = SpecArgs(; kw...)
     @assert length(Patterns) == length(Positions)
     dfs = Dict{Int, Array{DataFrame,1}}()
@@ -24,8 +34,16 @@ function Batch_OTA(Gene::String, Patterns::Array{String,1}, Positions::Array{Int
         end
     end
     for i in 1:length(Patterns)
-        OTA_Excelfile(dfs[i], Args.species, "$(PATH)/Output_Files/OTA$(Args.min_mm)_$(Gene)_Pos$(Positions[i]).xlsx")
-        sendUpdate("Finished OTA$(Args.min_mm)_$(Gene)_Pos$(Positions[i]) for $(join(Args.species, ","))")
+        dfs[i] = homology_processing(dfs[i], Args.species)
+        dfs[i] = expression_processing(dfs[i], Args.species, Args.expression)
+        OTA_Excelfile(dfs[i], Args.species, "$(PATH)/Output_Files/OTA$(Args.min_mm)_$(Gene)_Pos$(Positions[i])_rel$(VERSION).xlsx")
+        if message
+            try
+                sendUpdate("Finished OTA$(Args.min_mm)_$(Gene)_Pos$(Positions[i]) for $(join(Args.species, ","))")
+            catch
+                println("Message Failed")
+            end
+        end
     end
 end
 

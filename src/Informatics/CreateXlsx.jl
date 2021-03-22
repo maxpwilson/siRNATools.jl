@@ -18,13 +18,31 @@ function OTA_Excelfile(dfs, species, name)
         push!(cols, Dict("header" => "MM# 2-18"))
         push!(cols, Dict("header" => "AS 1-19 (5'->3')"))
         push!(cols, Dict("header" => "RC of off-target site in mRNA (5'->3')"))
-        push!(cols, Dict("header" => "Mismatch Positions in AS"))
+        push!(cols, Dict("header" => "Mismatch Positions"))
+        push!(cols, Dict("header" => "Mismatch Changes"))
         push!(cols, Dict("header" => "Transcript Location"))
-        widths = [18.86,11.86,17.14,60.14,17.57,13.14,28.14,53.14,34.13,27.86]
+        widths = [18.86,11.86,17.14,60.14,17.57,13.14,28.14,53.14,25,23.11,27.86]
+        start_width = length(widths)
+        total_width = size(dfs[x])[2]
+        homology_columns = filter(j -> occursin("homology", names(dfs[x])[j]), [k for k in 1:length(names(dfs[x]))])
+        expression_columns = filter(j -> occursin("expression", names(dfs[x])[j]), [k for k in 1:length(names(dfs[x]))])
+        for i in homology_columns
+            push!(cols, Dict("header" => "$(names(dfs[x])[i])"))
+            push!(widths, 21.67)
+        end
+        for i in expression_columns
+            push!(cols, Dict("header" => "$(names(dfs[x])[i])"))
+            push!(widths, 15)
+        end
         for y in 1:size(dfs[x])[1]
-            for z in 1:size(dfs[x])[2]
-                if z != 8
+            for z in 1:total_width
+                if z != 8 && !(z in homology_columns)
                     worksheet.write(y, z-1, "$(dfs[x][y, z])")
+                elseif (z in homology_columns)
+                    worksheet.write(y, z-1, dfs[x][y, z] == 0
+                    ? "None" : ((dfs[x][y, z] == 1)
+                    ? "Same Gene" : ((dfs[x][y, z] == 2)
+                    ? "Same Positions" : "Exact Mismatches")))
                 else
                     printer = []
                     for j in dfs[x][y,z]
@@ -40,12 +58,13 @@ function OTA_Excelfile(dfs, species, name)
                 end
             end
         end
-        worksheet.add_table(0,0,size(dfs[x])[1], size(dfs[x])[2]-1, Dict("columns" => cols))
-        for i in 1:size(dfs[x])[2]
+        worksheet.add_table(0,0,size(dfs[x])[1], total_width-1, Dict("columns" => cols))
+        for i in 1:total_width
             worksheet.set_column(i-1, i-1, widths[i], cellformat)
         end
     end
     workbook.close()
+    println("Workbook Created Successfully")
 end
 
 function Counts_Excelfile(dfs, species, name)
