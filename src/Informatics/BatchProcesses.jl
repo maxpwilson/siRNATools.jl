@@ -36,6 +36,7 @@ function Batch_OTA(Gene::String, Patterns::Array{String,1}, Positions::Array{Int
     for i in 1:length(Patterns)
         dfs[i] = homology_processing(dfs[i], Args.species)
         dfs[i] = expression_processing(dfs[i], Args.species, Args.expression)
+        (Args.snps) && (dfs[i] = nsnp_processing(dfs[i], Args.species))
         OTA_Excelfile(dfs[i], Args.species, "$(PATH)/Output_Files/OTA$(Args.min_mm)_$(Gene)_Pos$(Positions[i])_rel$(VERSION).xlsx")
         if message
             try

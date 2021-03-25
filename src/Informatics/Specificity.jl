@@ -41,49 +41,8 @@ function compress_genome_matches(raw_data::Array{MismatchLocus,1}, args::SpecArg
 end
 
 
-function expression_processing(dfs :: Array{DataFrame, 1}, species, expression) :: Array{DataFrame, 1}
-    dfs_out = Array{DataFrame, 1}()
-    for (i, spec) in enumerate(species)
-        df = dfs[i]
-        !(spec in keys(expression)) && (expression[spec] = [])
-        for tissue in expression[spec]
-            try
-                df_tissue = CSV.read("$(PATH)/Expression/$(find_longname(spec))/tissue/$(tissue).csv", DataFrame)
-                df_tissue = df_tissue[:, vcat(filter(i->occursin(tissue, i), names(df_tissue)), "GeneSymbol")]
-                rename!(df_tissue, vcat([i*="_expression" for i in filter(i->occursin(tissue, i), names(df_tissue))] , "GeneSymbol"))
-                df = DataFrames.leftjoin(df, df_tissue, on=:GeneSymbol)
-            catch
-                print("Tissue $(tissue) not found")
-            end
-        end
-        push!(dfs_out, df)
-    end
-    dfs_out
-end
 
-function homology_processing(dfs :: Array{DataFrame, 1}, species) :: Array{DataFrame, 1}
-    checker = Dict{String, Dict{String, Tuple{Array{Any,1},Array{String,1}}}}()
-    for (i, spec) in enumerate(species)
-        df = dfs[i]
-        d = Dict{String, Tuple{Array{Any,1},Array{String,1}}}()
-        for gene in df.GeneSymbol
-            d[uppercase(gene)] = (df[df.GeneSymbol .== gene, :].MMPos, replace([k[2:17] for k in df[df.GeneSymbol .== gene, :].OffTarget], r"[A-Z]" => ""))
-        end
-        checker[spec] = d
-    end
-    dfs_out = Array{DataFrame, 1}()
-    for (i, spec) in enumerate(species)
-        df = dfs[i]
-        for s in filter(i -> i != spec, species)
-            column = [uppercase(i) in keys(checker[s]) ?
-            ((length(intersect(checker[s][uppercase(i)][1], checker[spec][uppercase(i)][1])) > 0) ?
-            ((length(intersect(checker[s][uppercase(i)][2], checker[spec][uppercase(i)][2])) > 0) ? 3 : 2) : 1) : 0 for i in df.GeneSymbol]
-            df[!, "$(s)_homology"] = column
-        end
-        push!(dfs_out, df)
-    end
-    return dfs_out
-end
+
 
 function Deep_Search(pattern::String; kw::Base.Iterators.Pairs...)::DataFrame
     Args::SpecArgs = SpecArgs(; kw...)

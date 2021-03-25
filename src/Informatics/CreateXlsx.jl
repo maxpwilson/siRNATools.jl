@@ -26,6 +26,7 @@ function OTA_Excelfile(dfs, species, name)
         total_width = size(dfs[x])[2]
         homology_columns = filter(j -> occursin("homology", names(dfs[x])[j]), [k for k in 1:length(names(dfs[x]))])
         expression_columns = filter(j -> occursin("expression", names(dfs[x])[j]), [k for k in 1:length(names(dfs[x]))])
+        neutralizing_columns = filter(j -> occursin("Neutralizing", names(dfs[x])[j]), [k for k in 1:length(names(dfs[x]))])
         for i in homology_columns
             push!(cols, Dict("header" => "$(names(dfs[x])[i])"))
             push!(widths, 21.67)
@@ -33,6 +34,11 @@ function OTA_Excelfile(dfs, species, name)
         for i in expression_columns
             push!(cols, Dict("header" => "$(names(dfs[x])[i])"))
             push!(widths, 15)
+        end
+        for i in neutralizing_columns
+            name = replace(names(dfs[x])[i], "Neutralizing_" => "Neutralizing SNP ")
+            push!(cols, Dict("header" => "$(name)"))
+            push!(widths, 27)
         end
         for y in 1:size(dfs[x])[1]
             for z in 1:total_width
