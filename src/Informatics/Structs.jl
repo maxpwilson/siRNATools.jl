@@ -26,6 +26,7 @@ end
     anti::Bool = true
     expression::Dict{String, Array{String,1}} = Dict{String, Array{String,1}}()
     snps::Bool = false
+    dense::Bool = false
     species::Array{String, 1} = ["Human", "Cyno", "Rat", "Mouse", "Rhesus"]
 end
 

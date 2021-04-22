@@ -32,7 +32,7 @@ function OTA_Excelfile(dfs, species, name)
             push!(widths, 21.67)
         end
         for i in expression_columns
-            push!(cols, Dict("header" => "$(names(dfs[x])[i])"))
+            push!(cols, Dict("header" => "$(replace(replace(names(dfs[x])[i], "_expression" => " (TPM)"), "_"=>" "))"))
             push!(widths, 15)
         end
         for i in neutralizing_columns

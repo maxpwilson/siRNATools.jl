@@ -46,7 +46,7 @@ end
 
 function Deep_Search(pattern::String; kw::Base.Iterators.Pairs...)::DataFrame
     Args::SpecArgs = SpecArgs(; kw...)
-    GeneDescription = Dict{String, String}(zip(JuliaDB.select(TRANSCRIPTDATA, :Gene), JuliaDB.select(TRANSCRIPTDATA, :Description)))
+    TranscriptDescription = Dict{String, String}(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Description)))
     GeneID = Dict{String,Int64}(zip(JuliaDB.select(TRANSCRIPTDATA, :Gene), JuliaDB.select(TRANSCRIPTDATA, :GeneID)))
     TranscriptRange = Dict{String,UnitRange{Int64}}(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Range)))
     TranscriptType = Dict{String,String}(zip(JuliaDB.select(TRANSCRIPTDATA, :Transcript), JuliaDB.select(TRANSCRIPTDATA, :Type)))
@@ -56,13 +56,13 @@ function Deep_Search(pattern::String; kw::Base.Iterators.Pairs...)::DataFrame
     raw_data::Array{MismatchLocus,1} = find_genome_matches(pattern, Args)
     for loc in raw_data
         gid::Any = (loc.gene in keys(GeneID)) ? GeneID[loc.gene] : "na"
-        gd::String = (loc.gene in keys(GeneDescription)) ? GeneDescription[loc.gene] : "na"
+        gd::String = (loc.transcript in keys(TranscriptDescription)) ? TranscriptDescription[loc.transcript] : "na"
         mmchange::String=""
         tmotif = loc.transcriptmotif
         for k in loc.mismatches
             tmotif = tmotif[1:k-1] * lowercase(tmotif[k]) * tmotif[k+1:end]
             (length(mmchange) != 0) && (mmchange *= ",")
-            mmchange *= "$(loc.motif[k])=>$(loc.transcriptmotif[k])"
+            mmchange *= "$(loc.motif[k])-$(reverse_complement(string(loc.transcriptmotif[k])))"
         end
         region::Array{String,1} = []
         tstart::Int = (loc.transcript in keys(TranscriptRange)) ? TranscriptRange[loc.transcript][1] : 1

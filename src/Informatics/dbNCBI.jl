@@ -66,7 +66,7 @@ function initial_process_RefSeq()::Int
                 end
                 try seq = replace(replace(replace(replace(uppercase(match(r"ORIGIN([\s\S]*)\/\/", x)[1]), " " => ""), "\n" => ""), r"[\d]*" => ""), "T" => "U")  catch end
                 try gene = match(r"\/gene=\"(\S*)\"", x)[1]  catch end
-                try description = match(r"DEFINITION  ([^\(\n]*)", x)[1] catch end
+                try description = replace(replace(match(r"DEFINITION  ([\s\S]*)ACCESSION", x)[1], r"\n|\r" => ""), r"\s+" => " ") catch end
                 try id = parse(Int, match(r"\"GeneID:([\d]*)\"", x)[1]) catch end
                 push!(rows(tbl), (Organism=organism, Name=name, Transcript=version, Range=r, Type=tp, Gene=gene, GeneID=id, Description=description, RefSeq=encode_refseq(seq)))
                 counter=counter+1
