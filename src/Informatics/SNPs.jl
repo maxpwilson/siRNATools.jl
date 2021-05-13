@@ -127,6 +127,10 @@ function RevRgs(Str::String)::Bool
 		return false
 	end
 end
+function RevRgs_Long(Str::String)::Bool
+	occursin("complement", Str)
+end
+
 
 function StringToRgs(Str::String)::Array{Any,1}
     out = []
@@ -137,6 +141,25 @@ function StringToRgs(Str::String)::Array{Any,1}
 		end
     end
     out
+end
+
+function StringToRgs_Long(Str::String)::Array{Any, 1}
+	out = []
+	c = !occursin("complement", Str)
+	stripped_str = replace(Str, r"complement\(|join\(|\)"=>"")
+	for rg in split(stripped_str, ",")
+		x1 = parse(Int, split(rg, "..")[1])
+		x2 = try
+			parse(Int, split(rg, "..")[2])
+		catch
+			x1
+		end
+		xm = c ? 1 : -1
+		rg_out = c ? (x1:xm:x2) : (x2:xm:x1)
+		push!(out, rg_out)
+	end
+	!c && reverse!(out)
+	out
 end
 
 function transcript_position(pos::Int, rg)::Int

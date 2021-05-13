@@ -41,6 +41,18 @@ function Load_ENSEMBL_Version()
     end
 end
 
+function Load_SNP_Version()
+    try
+        if !("SNP_version.txt" in readdir(PATH))
+            touch("$(PATH)/SNP_version.txt")
+        end
+        global SNP_VERSION = readline(open("$(PATH)/SNP_version.txt"))
+    catch
+    end
+end
+
+
 Load_Path()
 Load_Version()
 Load_ENSEMBL_Version()
+Load_SNP_Version()

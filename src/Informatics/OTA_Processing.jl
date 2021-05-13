@@ -5,7 +5,7 @@ function nsnp_processing(dfs :: Array{DataFrame, 1}, species) :: Array{DataFrame
 		missing_transcripts = []
 		failed_to_load = []
         if find_longname(spec) == "Homo sapiens"
-            chr_all = CSV.read("$(PATH)/chrAll.csv", DataFrame)
+            chr_all = CSV.read("$(PATH)/Annotations/$(VERSION)/transcript_annotations.csv", DataFrame)
             genesnps = Dict()
             df.Neutralizing_ID = ["" for _ in 1:size(df, 1)]
             df.Neutralizing_Pos = ["" for _ in 1:size(df, 1)]
@@ -18,29 +18,29 @@ function nsnp_processing(dfs :: Array{DataFrame, 1}, species) :: Array{DataFrame
                 AccID = df[x, :Acc]
                 if !(GeneName in keys(genesnps))
                     try
-                        genesnps[GeneName] = CSV.read("$(PATH)/SNPs/$(SNP_VERSION)/$(GeneName):$(GeneNum).csv", DataFrame)
+                        genesnps[GeneName] = CSV.read("$(PATH)/SNPs/$(SNP_VERSION)/Genes/$(GeneNum).csv", DataFrame)
                     catch
 						push!(failed_to_load, GeneName)
                         continue
                     end
                 end
                 gene_snps = genesnps[GeneName]
-                if !(AccID in chr_all.Transcript)
+                if !(AccID in chr_all.transcript_id)
 					push!(missing_transcripts, AccID)
                     continue
                 end
 				try
-					str_rgs = chr_all[chr_all.Transcript .== AccID, :].ChrRange[1]
-					rgs = StringToRgs(str_rgs)
+					str_rgs = chr_all[chr_all.transcript_id .== AccID, :].location[1]
+					rgs = StringToRgs_Long(str_rgs)
 					gene_snps_in = gene_snps[in_transcript.(gene_snps.Pos, [rgs for _ in gene_snps.Pos]), :]
 					gene_snps_in.TranscriptPos = transcript_position.(gene_snps_in.Pos, [rgs for _ in gene_snps_in.Pos])
-					gene_snps_in.Freq = [occursin("1000Genomes:", i) ? parse(Float64, match(r"1000Genomes:[\d\.\,]*\d[\d\.\,]*,(\d[\d\.]*)", i)[1]) : 0 for i in gene_snps_in.Info]
-					gene_snps_in.Freq = [i > 0.5 ? 1 - i : i for i in gene_snps_in.Freq]
+					#gene_snps_in.Freq = [occursin("1000Genomes:", i) ? parse(Float64, match(r"1000Genomes:[\d\.\,]*\d[\d\.\,]*,(\d[\d\.]*)", i)[1]) : 0 for i in gene_snps_in.Info]
+					#gene_snps_in.Freq = [i > 0.5 ? 1 - i : i for i in gene_snps_in.Freq]
 					gene_snps_in_strand = gene_snps_in[[i in df.TranscriptLocation[x] for i in gene_snps_in.TranscriptPos], :]
-					sort!(gene_snps_in_strand, [:Pos], rev = !RevRgs(str_rgs))
+					sort!(gene_snps_in_strand, [:Pos], rev = !RevRgs_Long(str_rgs))
 					gene_snps_in_strand.Alt = replace.(gene_snps_in_strand.Alt, "T" => "U")
 					gene_snps_in_strand.Ref = replace.(gene_snps_in_strand.Ref, "T" => "U")
-					if !RevRgs(str_rgs)
+					if !RevRgs_Long(str_rgs)
 						gene_snps_in_strand.Alt = [join(reverse_complement.(split(i, ",")), ",") for i in gene_snps_in_strand.Alt]
 						gene_snps_in_strand.Ref = [join(reverse_complement.(split(i, ",")), ",") for i in gene_snps_in_strand.Ref]
 					end
@@ -145,6 +145,9 @@ function dense_processing(dfs :: Array{DataFrame, 1}) :: Array{DataFrame, 1}
 				print((df_gene.Description))
 			end
 			df_gene = df_gene[transcript_variant.(df_gene.Description) .== lowest_variant, :]
+			df_gene = df_gene[length.(df_gene.Acc) .== minimum(length.(df_gene.Acc)), :]
+			sort!(df_gene, :Acc)
+			df_gene = df_gene[1:1, :]
 			df_out = vcat(df_out, df_gene)
 		end
 		push!(dfs_out, df_out)

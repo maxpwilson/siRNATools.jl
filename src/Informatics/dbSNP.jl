@@ -1,17 +1,4 @@
 
-function Load_SNP_Version()
-    try
-        if !("SNP_version.txt" in readdir(PATH))
-            touch("$(PATH)/SNP_version.txt")
-        end
-        global SNP_VERSION = readline(open("$(PATH)/SNP_version.txt"))
-    catch
-    end
-end
-
-
-
-
 function process_SNP_db(file::String)
     g = gzopen(file)
     r = readline(g)
@@ -57,7 +44,7 @@ function process_SNP_db(file::String)
         if counter % 10000000 == 0
             Base.GC.enable(false)
             save(tbl, "$PATH/SNPs/154/Processed/DataTbl$i.jdb")
-            tbl = table((Chrom=String[], Pos=String[], ID=String[], Ref=String[], Alt=String[], Qual=String[], Filter=String[], VC=String[], Freq=String[]))
+            tbl = table((Chrom=String[], Pos=String[], ID=String[], Ref=String[], Alt=String[], Qual=String[], Filter=String[], VC=String[], Freq=String[], FreqYN=String[], Freq1=String[]))
             Base.GC.enable(true)
             i += 1
         end
@@ -65,5 +52,51 @@ function process_SNP_db(file::String)
     Base.GC.enable(false)
     save(tbl, "$PATH/SNPs/154/Processed/DataTbl$i.jdb")
     Base.GC.enable(true)
-    nothing
+    i
+end
+
+function create_gene_SNP_files()
+    df = CSV.read("$(PATH)/Annotations/$(VERSION)/gene_annotations.csv", DataFrame)
+    for x in 1:size(df)[1]
+        df_gene = DataFrame(:Chrom=>String[], :Pos=>String[], :ID=>String[], :Ref=>String[], :Alt=>String[], :Qual=>String[], :Filter=>String[], :VC=>String[], :Freq=>String[], :FreqYN=>String[], :Freq1=>String[])
+        CSV.write("$(PATH)/SNPs/154/Genes/$(df[x, :GeneID]).csv", df_gene)
+    end
+end
+
+function secondary_process_SNP_db(nums::Int)
+    df = CSV.read("$(PATH)/Annotations/$(VERSION)/gene_annotations.csv", DataFrame)
+    for i in 1:nums
+        d = Dict()
+        for x in readdir("$(PATH)/SNPs/154/Genes/")
+            d[x] = ""
+        end
+        Base.GC.enable(false)
+        tbl = load("$(PATH)/SNPs/154/Processed/DataTbl$(i).jdb")
+        Base.GC.enable(true)
+        p = ProgressMeter.Progress(length(tbl), 0.1, "Processing tbl $(i)...")
+        for x in tbl
+            pos = parse(Int, x.Pos)
+            genes = df[(df.chromosome .== chrom_acc_to_num(x.Chrom)) .& (df.loc1 .<= pos) .& (df.loc2 .>= pos), :GeneID]
+            for gene in genes
+                nm = "$(gene).csv"
+                if nm in keys(d)
+                    if d[nm] == ""
+                        d[nm] = CSV.read("$(PATH)/SNPs/154/Genes/$(nm)", DataFrame; types=[String for _ in 1:11])
+                    end
+                    try
+                        push!(d[nm], x)
+                    catch
+                        println("Failed in gene $(gene) tbl $(x)")
+                    end
+                end
+            end
+            ProgressMeter.next!(p)
+        end
+        ProgressMeter.finish!(p)
+        for (x, df_t) in d
+            if df_t != ""
+                CSV.write("$(PATH)/SNPs/154/Genes/$(x)", df_t)
+            end
+        end
+    end
 end

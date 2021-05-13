@@ -7,6 +7,7 @@ function Program_Position(gene::String, pos::Int; k::Int=21)::String
 end
 function Program_AddAcc(gene::String, acc::String)
     df = CSV.read("$(PATH)/ProgramInfo.csv", DataFrame)
+    print(df)
     push!(df, [gene, acc])
     CSV.write("$(PATH)/ProgramInfo.csv", df)
 end
