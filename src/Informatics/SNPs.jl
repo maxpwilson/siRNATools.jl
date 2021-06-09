@@ -80,20 +80,16 @@ function getSnps(AccID::String, k::Int = 21)
 	GeneName = ""
 	GeneNum = 0
 	GeneName = TRANSCRIPTGENE[AccID]
+	chr_all = CSV.read("$(PATH)/Annotations/$(VERSION)/transcript_annotations.csv", DataFrame)
 	@assert GeneName != ""
-	for j in readdir("$(PATH)/SNPs/$(SNP_VERSION)/")
-		if occursin(Regex("^$(GeneName):"), j)
-			GeneNum = parse(Int, match(r":([0-9]*)", j)[1])
-		end
-	end
+	GeneNum = chr_all[chr_all.gene .== GeneName, :GeneID][1]
 	@assert GeneNum != 0
-	gene_snps = CSV.read("$(PATH)/SNPs/$(SNP_VERSION)/$GeneName:$GeneNum.csv", DataFrame)
-	chr_all = CSV.read("$(PATH)/chrAll.csv", DataFrame)
-	str_rgs = chr_all[chr_all.Transcript.==AccID, :].ChrRange[1]
-	rgs = StringToRgs(str_rgs)
+	gene_snps = CSV.read("$(PATH)/SNPs/$(SNP_VERSION)/Genes/$GeneNum.csv", DataFrame)
+	str_rgs = chr_all[chr_all.transcript_id.==AccID, :].location[1]
+	rgs = StringToRgs_Long(str_rgs)
 	gene_snps_in = gene_snps[in_transcript.(gene_snps.Pos, [rgs for _ in gene_snps.Pos]), :]
 	gene_snps_in.TranscriptPos = transcript_position.(gene_snps_in.Pos, [rgs for _ in gene_snps_in.Pos])
-	gene_snps_in.Freq = [occursin("1000Genomes:", i) ? parse(Float64, match(r"1000Genomes:[\d\.\,]*\d[\d\.\,]*,(\d[\d\.]*)", i)[1]) : 0 for i in gene_snps_in.Info]
+	gene_snps_in.Freq = [!ismissing(i) ? (occursin("1000Genomes:", i) ? parse(Float64, match(r"1000Genomes:[\d\.\,]*\d[\d\.\,]*,(\d[\d\.]*)", i)[1]) : 0) : 0 for i in gene_snps_in.Freq]
 	gene_snps_in.Freq = [i > 0.5 ? 1 - i : i for i in gene_snps_in.Freq]
 	df.SNP_IDs = ["" for _ in df.Pos]
 	df.SNP_Pos = ["" for _ in df.Pos]
@@ -106,7 +102,7 @@ function getSnps(AccID::String, k::Int = 21)
 	df.SNP_Freq_hFreq = ["" for _ in df.Pos]
 	for x in 1:length(df.Pos)
 		gene_snps_in_x = gene_snps_in[[i in df.Pos[x] for i in gene_snps_in.TranscriptPos], :]
-		sort!(gene_snps_in_x, [:Pos], rev = RevRgs(str_rgs))
+		sort!(gene_snps_in_x, [:Pos], rev = RevRgs_Long(str_rgs))
 		df[x, :].SNP_IDs = join(gene_snps_in_x.ID, ",")
 		df[x, :].SNP_Pos = join([i - df.Pos[x][1] + 1 for i in gene_snps_in_x.TranscriptPos], ",")
 		df[x, :].SNP_Freq = join(gene_snps_in_x.Freq, ";")

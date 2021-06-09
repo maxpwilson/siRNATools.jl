@@ -133,11 +133,11 @@ function dense_processing(dfs :: Array{DataFrame, 1}) :: Array{DataFrame, 1}
 		df_out = df[df.Acc .== nothing, :]
 		for gene in unique(df.GeneSymbol)
 			df_gene = df[df.GeneSymbol .== gene, :]
+			lowest_mm = minimum(df_gene.MM)
+			df_gene = df_gene[df_gene.MM .== lowest_mm, :]
 			if size(df_gene[is_nm.(df_gene.Acc), :])[1] > 0
 				df_gene = df_gene[is_nm.(df_gene.Acc), :]
 			end
-			lowest_mm = minimum(df_gene.MM)
-			df_gene = df_gene[df_gene.MM .== lowest_mm, :]
 			lowest_variant = -1
 			try
 				lowest_variant = minimum(transcript_variant.(df_gene.Description))

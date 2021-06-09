@@ -6,8 +6,8 @@ if !("Bot.txt" in readdir(src))
 end
 
 f = open("$(src)/Bot.txt")
-const CHAT_ID = readline(f)
-const BOT_TOKEN = readline(f)
+global CHAT_ID = readline(f)
+global BOT_TOKEN = readline(f)
 tg = TelegramClient(BOT_TOKEN, chat_id = CHAT_ID)
 
 function sendUpdate(update::String)

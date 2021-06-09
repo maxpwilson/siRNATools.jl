@@ -138,7 +138,7 @@ function annotate_chromosome(num, l, xl, bSave=true)
 end
 function annotate_genome()
     df = annotate_chromosome(1, gen_lists("/Annotations/$(VERSION)/Chrs/chr1.gb")...)
-    for num in 2:22
+    for num in 2:24
         println("Finished annotation chr $(num-1)")
         df = vcat(df, annotate_chromosome(num, gen_lists("/Annotations/$(VERSION)/Chrs/chr1.gb")...))
     end

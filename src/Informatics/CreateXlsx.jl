@@ -244,9 +244,9 @@ end
 
 function miRNA_ExcelFile(report, name)
     @assert name[end-3:end] == "xlsx"
-    for col in names(report)
-        report[ismissing.(report[col]),col] = ""
-    end
+    #for col in names(report)
+    #    report[ismissing.(report[:, col]),col] = ""
+    #end
     xlsxwriter = pyimport("xlsxwriter")
     workbook = xlsxwriter.Workbook("$PATH/Output_Files/$name")
     worksheet = workbook.add_worksheet("miRNA Matches")
