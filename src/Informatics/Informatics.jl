@@ -25,6 +25,7 @@ include("Transcripts.jl")
 include("CreateXlsx.jl")
 include("GeneralReport.jl")
 include("Annotations.jl")
+include("HomologySearch.jl")
 
 
 export Calculate_Specificity, Deep_Search, getSnps, set_species, list_species, load_RefSeq, Batch_OTA, Batch_Counts

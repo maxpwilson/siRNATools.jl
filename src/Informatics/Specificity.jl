@@ -1,6 +1,7 @@
 """
 
 """
+
 function find_genome_matches(motif::String, args::SpecArgs)::Array{MismatchLocus,1}
     out::Array{MismatchLocus,1} = []
     pattern::String = motif[args.rg]

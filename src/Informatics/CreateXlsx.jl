@@ -6,6 +6,8 @@ function OTA_Excelfile(dfs, species, name)
     cellformat = workbook.add_format(Dict("font_name" => "Courier New"))
     red = workbook.add_format(Dict("color" => "red", "font_name" => "Courier New"))
     black = workbook.add_format(Dict("color" => "black", "font_name" => "Courier New"))
+    hyperlink = workbook.add_format(Dict("color" => "blue", "font_name" => "Courier New", "underline"=>true))
+    black_bold = workbook.add_format(Dict("color" => "black", "font_name" => "Courier New", "bold"=>true))
     for x in 1:length(dfs)
         worksheet = workbook.add_worksheet(species[x])
         cols = []
@@ -43,7 +45,9 @@ function OTA_Excelfile(dfs, species, name)
         for y in 1:size(dfs[x])[1]
             for z in 1:total_width
                 if z != 8 && !(z in homology_columns)
-                    worksheet.write(y, z-1, "$(dfs[x][y, z])")
+                    output = "$(dfs[x][y, z])"
+                    (output == "missing") && (output = "N/A")
+                    worksheet.write(y, z-1, output)
                 elseif (z in homology_columns)
                     worksheet.write(y, z-1, dfs[x][y, z] == 0
                     ? "None" : ((dfs[x][y, z] == 1)
@@ -69,6 +73,48 @@ function OTA_Excelfile(dfs, species, name)
             worksheet.set_column(i-1, i-1, widths[i], cellformat)
         end
     end
+
+    worksheet = workbook.add_worksheet("Info")
+    worksheet.set_column(0, 0, 27.22)
+    worksheet.set_column(1, 1, 10.44)
+    worksheet.set_column(2, 2, 88.44)
+    worksheet.write(0,0, "NCBI Databases:", black_bold)
+    worksheet.write(0,1, "Version:", black_bold)
+    worksheet.write(0,2, "Link:", black_bold)
+
+    worksheet.write(1,0, "RefSeq", black)
+    worksheet.write(1,1, "$(VERSION)", black)
+    worksheet.write_url(1,2, "https://www.ncbi.nlm.nih.gov/refseq/", hyperlink)
+    worksheet.write(2,0, "dbSNP", black)
+    worksheet.write(2,1, "$(SNP_VERSION)", black)
+    worksheet.write_url(2,2, "https://www.ncbi.nlm.nih.gov/snp/", hyperlink)
+
+    worksheet.write(4,0, "Expression Databases:", black_bold)
+    worksheet.write(5,0, "Human Protein Atlas", black)
+    worksheet.write(5,1, "NA", black)
+    worksheet.write_url(5,2, "https://www.proteinatlas.org", hyperlink)
+    worksheet.write(6,0, "ENCODE", black)
+    worksheet.write(6,1, "NA", black)
+    worksheet.write_url(6,2, "https://www.encodeproject.org/", hyperlink)
+    worksheet.write(7,0, "Illumina Body Map", black)
+    worksheet.write(7,1, "NA", black)
+    worksheet.write_url(7,2, "https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-513/", hyperlink)
+    worksheet.write(8,0, "GTEx", black)
+    worksheet.write(8,1, "8", black)
+    worksheet.write_url(8,2, "https://www.gtexportal.org/home/", hyperlink)
+    worksheet.write(9,0, "Fantom", black)
+    worksheet.write(9,1, "5", black)
+    worksheet.write_url(9,2, "https://fantom.gsc.riken.jp", hyperlink)
+    worksheet.write(10,0, "Hallstrom", black)
+    worksheet.write(10,1, "NA", black)
+    worksheet.write_url(10,2, "https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/", hyperlink)
+    worksheet.write(11,0, "Huss & Zhu", black)
+    worksheet.write(11,1, "NA", black)
+    worksheet.write_url(11,2, "https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-5782/", hyperlink)
+    worksheet.write(12,0, "Eye Integration", black)
+    worksheet.write(12,1, "1.05", black)
+    worksheet.write_url(12,2, "https://eyeintegration.nei.nih.gov/", hyperlink)
+
     workbook.close()
     println("Workbook Created Successfully")
 end
@@ -82,10 +128,7 @@ function Counts_Excelfile(dfs, species, name)
     header_format = workbook.add_format(Dict("bg_color" => "white", "font_name" => "Calibri", "font_size" => 11, "align" => "center", "right" => 1, "top" => 1, "left" => 1))
 
     header_format_left = workbook.add_format(Dict("bg_color" => "white", "font_name" => "Calibri", "font_size" => 11, "align" => "center", "right" => 1, "top" => 1, "left" => 2))
-
     header_format_right = workbook.add_format(Dict("bg_color" => "white", "font_name" => "Calibri", "font_size" => 11, "align" => "center", "right" => 2, "top" => 1, "left" => 1))
-
-
     header_format_bold = workbook.add_format(Dict("bg_color" => "white", "font_name" => "Calibri", "font_size" => 11, "bold" => true, "align" => "center", "border" => 2))
 
     header_format_green = workbook.add_format(Dict("bg_color" => "#CCFFCC", "font_name" => "Calibri", "font_size" => 11, "align" => "top", "bottom" => 2, "top" => 1, "left" => 1, "right" => 1))
