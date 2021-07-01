@@ -30,6 +30,19 @@ end
     species::Array{String, 1} = ["Human", "Cyno", "Rat", "Mouse", "Rhesus"]
 end
 
+struct secondary_structure
+    pat::String
+    folding_sites::String
+    free_energy::Float64
+    first_bond::Int
+    num_bonds::Int
+    bonds::Vector{String}
+    function secondary_structure(pat)
+        folding_output = rnafold(pat)
+        new(pat, folding_output[1], folding_output[2], rnafold_firstbond(folding_output[1]), rnafold_numbonds(folding_output[1]), rnafold_bonds(folding_output[1]))
+    end
+end
+
 function copy(s::SpecArgs)::SpecArgs
     SpecArgs(verbose=s.verbose,min_mm=s.min_mm,rg=s.rg,excluded_gene=s.excluded_gene,anti=s.anti,species=s.species,snps=s.snps,expression=s.expression)
 end
