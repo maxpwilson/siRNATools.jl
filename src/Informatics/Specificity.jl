@@ -89,6 +89,7 @@ function Calculate_Specificity(patterns::Array{String, 1}; kw...)::DataFrame
     e_gn::String = find_gene(Args.excluded_gene)
     (Args.verbose == true) && ((p = Progress(length(patterns), 0.2, "Calculating Specificity ... ")))
     (Args.verbose == true) && (update!(p, 0))
+    df_lock = SpinLock()
     @threads for i in 1:length(patterns)
         pattern = patterns[i]
         atomic_add!(counter, 1)
@@ -99,7 +100,9 @@ function Calculate_Specificity(patterns::Array{String, 1}; kw...)::DataFrame
             push!(mismatches, length(filter(i->i.difference .== j, compressed_data)))
         end
         score::Float64 = minimum([i.score for i in compressed_data])
+        lock(df_lock)
         push!(df, [i, pattern, mismatches..., score])
+        unlock(df_lock)
         (Args.verbose == true) && ProgressMeter.next!(p)
     end
     sort!(df, :ID)

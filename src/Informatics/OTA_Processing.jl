@@ -1,3 +1,11 @@
+function region_processing(dfs :: Array{DataFrame, 1}, regions) :: Array{DataFrame, 1}
+	dfs_out = Array{DataFrame, 1}()
+	for df in dfs
+		push!(dfs_out, df[[i in regions for i in df.Region], :])
+	end
+	dfs_out
+end
+
 function nsnp_processing(dfs :: Array{DataFrame, 1}, species) :: Array{DataFrame, 1}
     dfs_out = Array{DataFrame, 1}()
     for (i, spec) in enumerate(species)

@@ -29,6 +29,10 @@ include("HomologySearch.jl")
 include("RNAfold.jl")
 
 
-export Calculate_Specificity, Deep_Search, getSnps, set_species, list_species, load_RefSeq, Batch_OTA, Batch_Counts
+export Calculate_Specificity, Deep_Search, getSnps, set_species, list_species,
+    load_RefSeq, Batch_OTA, Batch_Counts, Gen_Kmer, reverse_complement, download_RefSeq,
+    process_RefSeq, Check_NCBI_Version, Check_ENSEMBL_Version, separate_chromosomes,
+    annotate_genome, create_chrAll, specialized_annotations, download_ensembl, process_ensembl
+    
 
 end
